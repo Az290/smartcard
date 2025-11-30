@@ -103,6 +103,36 @@ public class SmartCardService {
         return false;
     }
     
+    public boolean loadCardById(String cardId) {
+    if (cardId == null || cardId.isEmpty()) {
+        System.out.println("[CARD] ❌ Card ID không hợp lệ!");
+        return false;
+    }
+    
+    String fileName = CARDS_FOLDER + File.separator + CARD_FILE_PREFIX + cardId + CARD_FILE_EXT;
+    File cardFile = new File(fileName);
+    
+    if (!cardFile.exists()) {
+        System.out.println("[CARD] ❌ Không tìm thấy thẻ: " + cardId);
+        return false;
+    }
+    
+    CardData data = loadCardDataFromFile(fileName);
+    if (data != null) {
+        applyCardData(data);
+        this.currentCardFileName = fileName;
+        
+        System.out.println("[CARD] ✅ Đã load thẻ: " + cardId);
+        System.out.println("[CARD] 📋 Trạng thái: " + (cardRegistered ? "Đã đăng ký" : "Chưa đăng ký"));
+        System.out.println("[CARD] 🔐 Số lần thử PIN còn: " + pinTriesRemaining);
+        
+        return true;
+    }
+    
+    System.out.println("[CARD] ❌ Không thể load thẻ: " + cardId);
+    return false;
+}
+    
     /**
      * Kiểm tra SĐT đã được đăng ký chưa
      */
@@ -133,6 +163,7 @@ public class SmartCardService {
         
         return false;
     }
+    
     
     /**
      * Tìm và load thẻ bằng SĐT (để khôi phục PIN)

@@ -55,20 +55,20 @@ public class SideMenu extends JPanel {
         add(Box.createVerticalGlue());
 
         // Logout button
-        JButton logoutBtn = createMenuItem("🚪", "Đăng xuất", null);
-        logoutBtn.setBackground(new Color(180, 50, 50));
-        logoutBtn.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(
-                mainFrame, 
-                "Bạn có chắc muốn đăng xuất?", 
-                "Xác nhận", 
-                JOptionPane.YES_NO_OPTION
-            );
-            if (confirm == JOptionPane.YES_OPTION) {
-                mainFrame.logout();
-            }
-        });
-        add(logoutBtn);
+    JButton logoutBtn = createMenuItem("💳", "Rút thẻ", null);
+logoutBtn.setBackground(new Color(180, 50, 50));
+logoutBtn.addActionListener(e -> {
+    int confirm = JOptionPane.showConfirmDialog(
+        mainFrame, 
+        "Bạn muốn rút thẻ khỏi máy đọc?", 
+        "Xác nhận rút thẻ", 
+        JOptionPane.YES_NO_OPTION
+    );
+    if (confirm == JOptionPane.YES_OPTION) {
+        mainFrame.logout();
+    }
+});
+add(logoutBtn);
     }
 
     private JButton createMenuItem(String icon, String text, String screen) {
