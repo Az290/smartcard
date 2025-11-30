@@ -4,21 +4,17 @@ import gym_app.panels.*;
 import javax.swing.*;
 import java.awt.*;
 
-/**
- * MainFrame - Khung chính của ứng dụng
- * Sử dụng CardLayout để chuyển đổi giữa các màn hình
- */
 public class MainFrame extends JFrame {
 
     // Services
     private SmartCardService cardService;
     private DatabaseService dbService;
 
-    // CardLayout để chuyển màn hình
+    // CardLayout
     private CardLayout cardLayout;
     private JPanel mainContainer;
 
-    // Các màn hình
+    // Screen names
     public static final String SCREEN_LOGIN = "LOGIN";
     public static final String SCREEN_REGISTER = "REGISTER";
     public static final String SCREEN_DASHBOARD = "DASHBOARD";
@@ -31,18 +27,25 @@ public class MainFrame extends JFrame {
     public static final String SCREEN_HISTORY = "HISTORY";
     public static final String SCREEN_CHECKIN = "CHECKIN";
 
-    // Thông tin user hiện tại
+    // User info
     private String currentCardId;
     private String currentName;
     private String currentPhone;
 
-    // Panels (để có thể refresh)
+    // Panels
+    private LoginPanel loginPanel;
+    private RegisterPanel registerPanel;
     private DashboardPanel dashboardPanel;
     private HistoryPanel historyPanel;
     private PackageListPanel packageListPanel;
+    private BuyPackagePanel buyPackagePanel;
+    private TopupPanel topupPanel;
+    private CheckinPanel checkinPanel;
+    private ProfileEditPanel profileEditPanel;
+    private ChangePinPanel changePinPanel;
+    private UnblockPinPanel unblockPinPanel;
 
     public MainFrame() {
-        // Khởi tạo services
         cardService = new SmartCardService();
         dbService = new DatabaseService();
 
@@ -57,10 +60,6 @@ public class MainFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // Icon (nếu có)
-        // setIconImage(new ImageIcon("icon.png").getImage());
-
-        // CardLayout container
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
         mainContainer.setBackground(new Color(30, 30, 45));
@@ -69,70 +68,122 @@ public class MainFrame extends JFrame {
     }
 
     private void initPanels() {
-        // Màn hình đăng nhập/đăng ký
-        mainContainer.add(new LoginPanel(this), SCREEN_LOGIN);
-        mainContainer.add(new RegisterPanel(this), SCREEN_REGISTER);
+        // Auth panels
+        loginPanel = new LoginPanel(this);
+        mainContainer.add(loginPanel, SCREEN_LOGIN);
+        
+        registerPanel = new RegisterPanel(this);
+        mainContainer.add(registerPanel, SCREEN_REGISTER);
+        
+        unblockPinPanel = new UnblockPinPanel(this);
+        mainContainer.add(unblockPinPanel, SCREEN_UNBLOCK);
 
-        // Màn hình chính (sẽ tạo sau khi đăng nhập)
+        // Change PIN panel
+        changePinPanel = new ChangePinPanel(this);
+        mainContainer.add(changePinPanel, SCREEN_CHANGE_PIN);
+
+        // Main panels
         dashboardPanel = new DashboardPanel(this);
         mainContainer.add(dashboardPanel, SCREEN_DASHBOARD);
 
-        // Các màn hình chức năng
-        mainContainer.add(new TopupPanel(this), SCREEN_TOPUP);
+        topupPanel = new TopupPanel(this);
+        mainContainer.add(topupPanel, SCREEN_TOPUP);
         
         packageListPanel = new PackageListPanel(this);
         mainContainer.add(packageListPanel, SCREEN_PACKAGES);
         
-        mainContainer.add(new BuyPackagePanel(this), SCREEN_BUY_PACKAGE);
-        mainContainer.add(new ProfileEditPanel(this), SCREEN_PROFILE);
-        mainContainer.add(new ChangePinPanel(this), SCREEN_CHANGE_PIN);
-        mainContainer.add(new UnblockPinPanel(this), SCREEN_UNBLOCK);
+        buyPackagePanel = new BuyPackagePanel(this);
+        mainContainer.add(buyPackagePanel, SCREEN_BUY_PACKAGE);
+        
+        profileEditPanel = new ProfileEditPanel(this);
+        mainContainer.add(profileEditPanel, SCREEN_PROFILE);
         
         historyPanel = new HistoryPanel(this);
         mainContainer.add(historyPanel, SCREEN_HISTORY);
         
-        mainContainer.add(new CheckinPanel(this), SCREEN_CHECKIN);
+        checkinPanel = new CheckinPanel(this);
+        mainContainer.add(checkinPanel, SCREEN_CHECKIN);
 
-        // Bắt đầu từ màn hình Login
         showScreen(SCREEN_LOGIN);
     }
 
-    /**
-     * Chuyển đến màn hình khác
-     */
     public void showScreen(String screenName) {
         cardLayout.show(mainContainer, screenName);
 
         // Refresh data khi chuyển màn hình
-        if (screenName.equals(SCREEN_DASHBOARD)) {
-            dashboardPanel.refreshData();
-        } else if (screenName.equals(SCREEN_HISTORY)) {
-            historyPanel.loadHistory();
-        } else if (screenName.equals(SCREEN_PACKAGES)) {
-            packageListPanel.loadPackages();
+        switch (screenName) {
+            case SCREEN_LOGIN:
+                loginPanel.onShow();
+                break;
+            case SCREEN_REGISTER:
+                registerPanel.onShow();
+                break;
+            case SCREEN_DASHBOARD:
+                dashboardPanel.refreshData();
+                break;
+            case SCREEN_HISTORY:
+                historyPanel.loadHistory();
+                break;
+            case SCREEN_PACKAGES:
+                packageListPanel.loadPackages();
+                break;
+            case SCREEN_BUY_PACKAGE:
+                buyPackagePanel.onShow();
+                break;
+            case SCREEN_TOPUP:
+                topupPanel.onShow();
+                break;
+            case SCREEN_CHECKIN:
+                checkinPanel.onShow();
+                break;
+            case SCREEN_PROFILE:
+                profileEditPanel.onShow();
+                break;
+            case SCREEN_CHANGE_PIN:
+                changePinPanel.onShow();
+                break;
         }
     }
 
     /**
-     * Đăng nhập thành công - lưu thông tin user
+     * Được gọi từ LoginPanel khi cần đổi PIN lần đầu
+     * Truyền thông tin user sang ChangePinPanel để sau khi đổi PIN xong sẽ login
+     */
+    public void setPendingLoginForChangePin(String cardId, String name, String phone) {
+        changePinPanel.setPendingLogin(cardId, name, phone);
+    }
+
+    /**
+     * Đăng nhập thành công - lưu thông tin user và chuyển đến Dashboard
      */
     public void onLoginSuccess(String cardId, String name, String phone) {
         this.currentCardId = cardId;
         this.currentName = name;
         this.currentPhone = phone;
         
+        // Lưu cardId vào service
+        cardService.setCardId(cardId);
+        
+        System.out.println("[MainFrame] Login success: " + cardId + ", " + name + ", " + phone);
+        
         dashboardPanel.setUserInfo(cardId, name, phone);
         showScreen(SCREEN_DASHBOARD);
     }
 
     /**
-     * Đăng xuất
+     * Đăng xuất - CHỈ RESET TRẠNG THÁI XÁC THỰC
      */
     public void logout() {
         currentCardId = null;
         currentName = null;
         currentPhone = null;
-        cardService.reset();
+        
+        // Chỉ logout, không reset hoàn toàn thẻ
+        cardService.logout();
+        
+        // Reset ChangePinPanel về trạng thái bình thường
+        changePinPanel.setNormalMode();
+        
         showScreen(SCREEN_LOGIN);
     }
 
@@ -160,11 +211,15 @@ public class MainFrame extends JFrame {
 
     public void setCurrentName(String name) {
         this.currentName = name;
-        dashboardPanel.setUserInfo(currentCardId, name, currentPhone);
+        if (dashboardPanel != null) {
+            dashboardPanel.setUserInfo(currentCardId, name, currentPhone);
+        }
     }
 
     public void setCurrentPhone(String phone) {
         this.currentPhone = phone;
-        dashboardPanel.setUserInfo(currentCardId, currentName, phone);
+        if (dashboardPanel != null) {
+            dashboardPanel.setUserInfo(currentCardId, currentName, phone);
+        }
     }
 }

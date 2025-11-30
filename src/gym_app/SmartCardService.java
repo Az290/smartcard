@@ -1,76 +1,282 @@
 package gym_app;
 
-import java.util.Arrays;
-import java.util.Random;
+import java.io.*;
+import java.util.*;
 
 /**
  * SmartCardService - Giả lập JavaCard Applet thegym
- * Hỗ trợ đầy đủ 14 INS codes
- * 
- * Chế độ: SIMULATION (không cần thẻ thật)
- * Khi có thẻ thật: Đổi sang dùng javax.smartcardio
+ * Hỗ trợ nhiều thẻ, mỗi thẻ 1 file riêng
+ * Đăng nhập bằng PIN để tìm thẻ tương ứng
  */
 public class SmartCardService {
-
-    // ====================== INS CODES (khớp với applet) ======================
-    private static final byte CLA                            = (byte) 0x80;
-    private static final byte INS_VERIFY_PIN                 = (byte) 0x10;
-    private static final byte INS_CHANGE_PIN                 = (byte) 0x11;
-    private static final byte INS_UNBLOCK_AND_GEN_NEW_PIN    = (byte) 0x12;
-    private static final byte INS_REGISTER_NEW_CARD          = (byte) 0x20;
-    private static final byte INS_GET_RANDOM_PIN             = (byte) 0x21;
-    private static final byte INS_UPDATE_INFO                = (byte) 0x30;
-    private static final byte INS_GET_INFO                   = (byte) 0x31;
-    private static final byte INS_EDIT_INFO                  = (byte) 0x32;
-    private static final byte INS_UPLOAD_AVATAR              = (byte) 0x40;
-    private static final byte INS_GET_AVATAR                 = (byte) 0x41;
-    private static final byte INS_TOPUP                      = (byte) 0x50;
-    private static final byte INS_GET_BALANCE                = (byte) 0x51;
-    private static final byte INS_CHECK_IN                   = (byte) 0x52;
-    private static final byte INS_SIGN_TRANSACTION           = (byte) 0x60;
 
     // ====================== CONFIG ======================
     private static final int PIN_TRY_LIMIT = 5;
     private static final int PIN_SIZE = 6;
     private static final int AVATAR_MAX_SIZE = 1024;
     private static final int INFO_MAX_SIZE = 256;
+    
+    // Thư mục lưu các thẻ
+    private static final String CARDS_FOLDER = "cards";
+    private static final String CARD_FILE_PREFIX = "card_";
+    private static final String CARD_FILE_EXT = ".dat";
 
-    // ====================== TRẠNG THÁI THẺ (giả lập EEPROM) ======================
-    private String currentPIN = null;           // PIN hiện tại (null = chưa đăng ký)
-    private String tempGeneratedPIN = null;     // PIN tạm (để lấy sau register/unblock)
+    // ====================== TRẠNG THÁI THẺ HIỆN TẠI ======================
+    private String currentPIN = null;
+    private String tempGeneratedPIN = null;
     private int pinTriesRemaining = PIN_TRY_LIMIT;
     private boolean pinVerified = false;
     private boolean mustChangePIN = true;
     private boolean cardRegistered = false;
     
-    private String recoveryPhone = null;        // SĐT khôi phục
-    private long balance = 0;                   // Số dư
+    private String cardId = null;
+    private String recoveryPhone = null;
+    private long balance = 0;
     
-    private byte[] encryptedInfo = null;        // Thông tin cá nhân (mã hóa)
-    private byte[] avatar = null;               // Ảnh đại diện (mã hóa)
+    private String encryptedInfo = null;
+    private byte[] avatar = null;
     
-    // Giả lập Master Key (trong thực tế nằm trong RAM của thẻ)
     private byte[] masterKey = new byte[16];
+    
+    // File của thẻ hiện tại đang được sử dụng
+    private String currentCardFileName = null;
 
     // ====================== CONSTRUCTOR ======================
     public SmartCardService() {
         System.out.println("╔════════════════════════════════════════════════════════╗");
         System.out.println("║  SMARTCARD SERVICE - CHẾ ĐỘ GIẢ LẬP (SIMULATION)      ║");
-        System.out.println("║  Hỗ trợ đầy đủ 14 INS codes như applet thật           ║");
+        System.out.println("║  Hỗ trợ nhiều thẻ - Đăng nhập bằng PIN                 ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
+        
+        // Tạo thư mục cards nếu chưa có
+        File cardsDir = new File(CARDS_FOLDER);
+        if (!cardsDir.exists()) {
+            cardsDir.mkdir();
+            System.out.println("[CARD] 📁 Đã tạo thư mục: " + CARDS_FOLDER);
+        }
+        
+        // KHÔNG tự động load thẻ - chờ người dùng đăng nhập
+        System.out.println("[CARD] 📋 Sẵn sàng. Vui lòng đăng nhập hoặc đăng ký.");
+    }
+
+    // ====================== TÌM THẺ BẰNG PIN ======================
+    
+    /**
+     * Tìm và load thẻ có PIN khớp
+     * @return true nếu tìm thấy
+     */
+    public boolean findAndLoadCardByPIN(String pin) {
+        if (pin == null || pin.length() != PIN_SIZE) {
+            System.out.println("[CARD] ❌ PIN phải đúng 6 số!");
+            return false;
+        }
+        
+        File cardsDir = new File(CARDS_FOLDER);
+        if (!cardsDir.exists()) {
+            System.out.println("[CARD] ❌ Chưa có thẻ nào!");
+            return false;
+        }
+        
+        File[] files = cardsDir.listFiles((dir, name) -> 
+            name.startsWith(CARD_FILE_PREFIX) && name.endsWith(CARD_FILE_EXT));
+        
+        if (files == null || files.length == 0) {
+            System.out.println("[CARD] ❌ Chưa có thẻ nào được đăng ký!");
+            return false;
+        }
+        
+        // Duyệt qua tất cả các thẻ để tìm PIN khớp
+        for (File file : files) {
+            CardData data = loadCardDataFromFile(file.getAbsolutePath());
+            if (data != null && data.currentPIN != null && data.currentPIN.equals(pin)) {
+                // Tìm thấy! Load thẻ này
+                applyCardData(data);
+                this.currentCardFileName = file.getAbsolutePath();
+                
+                System.out.println("[CARD] ✅ Tìm thấy thẻ: " + cardId);
+                System.out.println("[CARD] 📋 Số dư: " + formatMoney(balance));
+                return true;
+            }
+        }
+        
+        System.out.println("[CARD] ❌ Không tìm thấy thẻ với PIN này!");
+        return false;
+    }
+    
+    /**
+     * Kiểm tra SĐT đã được đăng ký chưa
+     */
+    public boolean isPhoneRegistered(String phone) {
+        if (phone == null || phone.isEmpty()) {
+            return false;
+        }
+        
+        File cardsDir = new File(CARDS_FOLDER);
+        if (!cardsDir.exists()) {
+            return false;
+        }
+        
+        File[] files = cardsDir.listFiles((dir, name) -> 
+            name.startsWith(CARD_FILE_PREFIX) && name.endsWith(CARD_FILE_EXT));
+        
+        if (files == null) {
+            return false;
+        }
+        
+        for (File file : files) {
+            CardData data = loadCardDataFromFile(file.getAbsolutePath());
+            if (data != null && data.recoveryPhone != null && data.recoveryPhone.equals(phone)) {
+                System.out.println("[CARD] ⚠️ SĐT " + phone + " đã được đăng ký!");
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Tìm và load thẻ bằng SĐT (để khôi phục PIN)
+     */
+    public boolean findAndLoadCardByPhone(String phone) {
+        if (phone == null || phone.isEmpty()) {
+            return false;
+        }
+        
+        File cardsDir = new File(CARDS_FOLDER);
+        if (!cardsDir.exists()) {
+            return false;
+        }
+        
+        File[] files = cardsDir.listFiles((dir, name) -> 
+            name.startsWith(CARD_FILE_PREFIX) && name.endsWith(CARD_FILE_EXT));
+        
+        if (files == null) {
+            return false;
+        }
+        
+        for (File file : files) {
+            CardData data = loadCardDataFromFile(file.getAbsolutePath());
+            if (data != null && data.recoveryPhone != null && data.recoveryPhone.equals(phone)) {
+                // Tìm thấy! Load thẻ này
+                applyCardData(data);
+                this.currentCardFileName = file.getAbsolutePath();
+                
+                System.out.println("[CARD] ✅ Tìm thấy thẻ với SĐT: " + phone);
+                return true;
+            }
+        }
+        
+        System.out.println("[CARD] ❌ Không tìm thấy thẻ với SĐT: " + phone);
+        return false;
+    }
+
+    // ====================== PERSISTENCE ======================
+    
+    private void saveCardData() {
+        if (currentCardFileName == null) {
+            System.out.println("[CARD] ❌ Không có thẻ để lưu!");
+            return;
+        }
+        
+        try (ObjectOutputStream oos = new ObjectOutputStream(
+                new FileOutputStream(currentCardFileName))) {
+            
+            CardData data = new CardData();
+            data.currentPIN = this.currentPIN;
+            data.pinTriesRemaining = this.pinTriesRemaining;
+            data.mustChangePIN = this.mustChangePIN;
+            data.cardRegistered = this.cardRegistered;
+            data.cardId = this.cardId;
+            data.recoveryPhone = this.recoveryPhone;
+            data.balance = this.balance;
+            data.encryptedInfo = this.encryptedInfo;
+            data.avatar = this.avatar;
+            data.masterKey = this.masterKey;
+            
+            oos.writeObject(data);
+            System.out.println("[CARD] 💾 Đã lưu thẻ: " + cardId);
+            
+        } catch (IOException e) {
+            System.out.println("[CARD] ❌ Lỗi lưu: " + e.getMessage());
+        }
+    }
+    
+    private CardData loadCardDataFromFile(String fileName) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+            return (CardData) ois.readObject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private void applyCardData(CardData data) {
+        this.currentPIN = data.currentPIN;
+        this.pinTriesRemaining = data.pinTriesRemaining;
+        this.mustChangePIN = data.mustChangePIN;
+        this.cardRegistered = data.cardRegistered;
+        this.cardId = data.cardId;
+        this.recoveryPhone = data.recoveryPhone;
+        this.balance = data.balance;
+        this.encryptedInfo = data.encryptedInfo;
+        this.avatar = data.avatar;
+        this.masterKey = data.masterKey != null ? data.masterKey : new byte[16];
+        
+        // Reset session state
+        this.pinVerified = false;
+        this.tempGeneratedPIN = null;
+    }
+    
+    private void resetAllData() {
+        currentPIN = null;
+        tempGeneratedPIN = null;
+        pinTriesRemaining = PIN_TRY_LIMIT;
+        pinVerified = false;
+        mustChangePIN = true;
+        cardRegistered = false;
+        cardId = null;
+        recoveryPhone = null;
+        balance = 0;
+        encryptedInfo = null;
+        avatar = null;
+        masterKey = new byte[16];
+        currentCardFileName = null;
+    }
+    
+    private static class CardData implements Serializable {
+        private static final long serialVersionUID = 1L;
+        
+        String currentPIN;
+        int pinTriesRemaining;
+        boolean mustChangePIN;
+        boolean cardRegistered;
+        String cardId;
+        String recoveryPhone;
+        long balance;
+        String encryptedInfo;
+        byte[] avatar;
+        byte[] masterKey;
+    }
+
+    // ====================== CARD ID ======================
+    public void setCardId(String cardId) {
+        this.cardId = cardId;
+        if (currentCardFileName != null) {
+            saveCardData();
+        }
+    }
+    
+    public String getCardId() {
+        return cardId;
     }
 
     // ====================== 0x20: ĐĂNG KÝ THẺ MỚI ======================
-    /**
-     * INS 0x20 - Đăng ký thẻ mới, sinh PIN ngẫu nhiên 6 số
-     * @return PIN 6 số hoặc null nếu thẻ đã đăng ký
-     */
     public String registerNewCard() {
-        if (cardRegistered && pinVerified) {
-            System.out.println("[CARD] ❌ Thẻ đã được đăng ký và kích hoạt!");
-            return null;
-        }
-
+        // Tạo card ID mới
+        String newCardId = "GYM" + System.currentTimeMillis() % 1000000;
+        
+        // Reset tất cả dữ liệu
+        resetAllData();
+        
         // Sinh PIN ngẫu nhiên 6 số
         Random r = new Random();
         StringBuilder pin = new StringBuilder();
@@ -88,19 +294,23 @@ public class SmartCardService {
         pinVerified = false;
         pinTriesRemaining = PIN_TRY_LIMIT;
         balance = 0;
+        cardId = newCardId;
+        
+        // Tạo file mới cho thẻ này
+        currentCardFileName = CARDS_FOLDER + File.separator + CARD_FILE_PREFIX + newCardId + CARD_FILE_EXT;
 
         System.out.println("[CARD] ✅ Đăng ký thành công!");
+        System.out.println("[CARD] 🆔 Card ID: " + newCardId);
         System.out.println("[CARD] 🔑 PIN mặc định: " + currentPIN);
         System.out.println("[CARD] ⚠️  Bắt buộc đổi PIN lần đầu!");
+
+        // Lưu vào file
+        saveCardData();
 
         return currentPIN;
     }
 
     // ====================== 0x21: LẤY PIN ĐÃ SINH ======================
-    /**
-     * INS 0x21 - Lấy PIN đã sinh (chỉ lấy được 1 lần sau register/unblock)
-     * @return PIN 6 số hoặc null
-     */
     public String getGeneratedPIN() {
         if (tempGeneratedPIN == null) {
             System.out.println("[CARD] ❌ Không có PIN tạm để lấy!");
@@ -108,17 +318,12 @@ public class SmartCardService {
         }
 
         String pin = tempGeneratedPIN;
-        tempGeneratedPIN = null; // Xóa sau khi lấy (bảo mật)
+        tempGeneratedPIN = null;
         System.out.println("[CARD] 🔑 PIN đã lấy: " + pin);
         return pin;
     }
 
     // ====================== 0x10: XÁC THỰC PIN ======================
-    /**
-     * INS 0x10 - Xác thực PIN
-     * @param pin6 PIN 6 số
-     * @return true nếu đúng, false nếu sai
-     */
     public boolean verifyPIN(String pin6) {
         if (!cardRegistered) {
             System.out.println("[CARD] ❌ Thẻ chưa đăng ký!");
@@ -143,35 +348,28 @@ public class SmartCardService {
             if (mustChangePIN) {
                 System.out.println("[CARD] ⚠️  Cần đổi PIN lần đầu! (SW=9C10)");
             }
+            
+            saveCardData();
             return true;
         } else {
             pinTriesRemaining--;
             pinVerified = false;
             System.out.println("[CARD] ❌ PIN sai! Còn " + pinTriesRemaining + " lần thử.");
+            
+            saveCardData();
             return false;
         }
     }
 
-    /**
-     * Kiểm tra trạng thái phải đổi PIN
-     */
     public boolean isMustChangePIN() {
         return mustChangePIN;
     }
 
-    /**
-     * Lấy số lần thử PIN còn lại
-     */
     public int getPinTriesRemaining() {
         return pinTriesRemaining;
     }
 
     // ====================== 0x11: ĐỔI PIN ======================
-    /**
-     * INS 0x11 - Đổi PIN mới
-     * @param newPin6 PIN mới 6 số
-     * @return true nếu thành công
-     */
     public boolean changePIN(String newPin6) {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN cũ!");
@@ -186,15 +384,12 @@ public class SmartCardService {
         currentPIN = newPin6;
         mustChangePIN = false;
         System.out.println("[CARD] ✅ Đổi PIN thành công: " + currentPIN);
+        
+        saveCardData();
         return true;
     }
 
     // ====================== 0x12: UNBLOCK & SINH PIN MỚI ======================
-    /**
-     * INS 0x12 - Mở khóa thẻ bằng SĐT khôi phục, sinh PIN mới
-     * @param phone SĐT khôi phục
-     * @return PIN mới 6 số hoặc null
-     */
     public String unblockAndGenerateNewPIN(String phone) {
         if (recoveryPhone == null || recoveryPhone.isEmpty()) {
             System.out.println("[CARD] ❌ Chưa đăng ký SĐT khôi phục!");
@@ -203,6 +398,7 @@ public class SmartCardService {
 
         if (!recoveryPhone.equals(phone)) {
             System.out.println("[CARD] ❌ SĐT khôi phục không đúng!");
+            System.out.println("[CARD] Expected: " + recoveryPhone + ", Got: " + phone);
             return null;
         }
 
@@ -221,26 +417,27 @@ public class SmartCardService {
 
         System.out.println("[CARD] ✅ Unblock thành công!");
         System.out.println("[CARD] 🔑 PIN mới: " + currentPIN);
+        
+        saveCardData();
         return currentPIN;
     }
 
-    /**
-     * Đăng ký SĐT khôi phục (gọi sau khi update info)
-     */
     public void setRecoveryPhone(String phone) {
         this.recoveryPhone = phone;
         System.out.println("[CARD] 📱 Đã lưu SĐT khôi phục: " + phone);
+        if (currentCardFileName != null) {
+            saveCardData();
+        }
+    }
+    
+    public String getRecoveryPhone() {
+        return recoveryPhone;
     }
 
     // ====================== 0x30: CẬP NHẬT THÔNG TIN ======================
-    /**
-     * INS 0x30 - Cập nhật thông tin cá nhân (lưu mã hóa)
-     * @param info Thông tin dạng JSON hoặc text
-     * @return true nếu thành công
-     */
     public boolean updateInfo(String info) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
+        if (!cardRegistered) {
+            System.out.println("[CARD] ❌ Thẻ chưa đăng ký!");
             return false;
         }
 
@@ -249,17 +446,16 @@ public class SmartCardService {
             return false;
         }
 
-        // Giả lập mã hóa AES (trong applet thật dùng aesCipher)
-        encryptedInfo = fakeEncrypt(info.getBytes());
+        encryptedInfo = info;
         System.out.println("[CARD] ✅ Đã lưu thông tin (" + info.length() + " bytes)");
+        
+        if (currentCardFileName != null) {
+            saveCardData();
+        }
         return true;
     }
 
     // ====================== 0x31: LẤY THÔNG TIN ======================
-    /**
-     * INS 0x31 - Lấy thông tin cá nhân (giải mã)
-     * @return Thông tin hoặc null
-     */
     public String getInfo() {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
@@ -271,20 +467,11 @@ public class SmartCardService {
             return null;
         }
 
-        byte[] decrypted = fakeDecrypt(encryptedInfo);
-        String info = new String(decrypted).trim();
-        System.out.println("[CARD] 📄 Thông tin: " + info);
-        return info;
+        return encryptedInfo;
     }
 
     // ====================== 0x32: SỬA THÔNG TIN ======================
-    /**
-     * INS 0x32 - Sửa thông tin (không thay đổi SĐT khôi phục)
-     * @param info Thông tin mới
-     * @return true nếu thành công
-     */
     public boolean editInfo(String info) {
-        // Giống updateInfo nhưng không đổi recoveryPhone
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
             return false;
@@ -295,17 +482,14 @@ public class SmartCardService {
             return false;
         }
 
-        encryptedInfo = fakeEncrypt(info.getBytes());
+        encryptedInfo = info;
         System.out.println("[CARD] ✅ Đã sửa thông tin");
+        
+        saveCardData();
         return true;
     }
 
     // ====================== 0x40: UPLOAD AVATAR ======================
-    /**
-     * INS 0x40 - Upload ảnh đại diện (tối đa 1024 bytes)
-     * @param avatarData Dữ liệu ảnh (đã resize/compress)
-     * @return true nếu thành công
-     */
     public boolean uploadAvatar(byte[] avatarData) {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
@@ -317,17 +501,14 @@ public class SmartCardService {
             return false;
         }
 
-        // Mã hóa và lưu
-        avatar = fakeEncrypt(avatarData);
+        avatar = avatarData.clone();
         System.out.println("[CARD] 🖼️ Đã lưu avatar (" + avatarData.length + " bytes)");
+        
+        saveCardData();
         return true;
     }
 
     // ====================== 0x41: LẤY AVATAR ======================
-    /**
-     * INS 0x41 - Lấy ảnh đại diện
-     * @return Dữ liệu ảnh hoặc null
-     */
     public byte[] getAvatar() {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
@@ -335,21 +516,13 @@ public class SmartCardService {
         }
 
         if (avatar == null) {
-            System.out.println("[CARD] ❌ Chưa có avatar!");
             return null;
         }
 
-        byte[] decrypted = fakeDecrypt(avatar);
-        System.out.println("[CARD] 🖼️ Lấy avatar (" + decrypted.length + " bytes)");
-        return decrypted;
+        return avatar.clone();
     }
 
     // ====================== 0x50: NẠP TIỀN ======================
-    /**
-     * INS 0x50 - Nạp tiền vào thẻ
-     * @param amount Số tiền (VNĐ)
-     * @return true nếu thành công
-     */
     public boolean topup(int amount) {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
@@ -361,7 +534,6 @@ public class SmartCardService {
             return false;
         }
 
-        // Kiểm tra overflow (max ~2 tỷ với long)
         if (balance + amount < balance) {
             System.out.println("[CARD] ❌ Số dư vượt quá giới hạn!");
             return false;
@@ -369,23 +541,17 @@ public class SmartCardService {
 
         balance += amount;
         System.out.println("[CARD] 💰 Nạp " + formatMoney(amount) + " → Số dư: " + formatMoney(balance));
+        
+        saveCardData();
         return true;
     }
 
     // ====================== 0x51: LẤY SỐ DƯ ======================
-    /**
-     * INS 0x51 - Lấy số dư hiện tại
-     * @return Số dư (VNĐ)
-     */
     public long getBalance() {
         return balance;
     }
 
     // ====================== 0x52: CHECK-IN ======================
-    /**
-     * INS 0x52 - Check-in vào phòng gym
-     * @return true nếu thành công
-     */
     public boolean checkIn() {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
@@ -398,20 +564,12 @@ public class SmartCardService {
     }
 
     // ====================== 0x60: KÝ GIAO DỊCH ======================
-    /**
-     * INS 0x60 - Ký giao dịch RSA
-     * @param type Loại giao dịch (0x01=topup, 0x02=mua gói...)
-     * @param amount Số tiền
-     * @return Chữ ký (giả lập)
-     */
     public byte[] signTransaction(byte type, int amount) {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
             return null;
         }
 
-        // Giả lập chữ ký RSA
-        // Trong applet thật: rsaSigner.sign(data, ...)
         String sigData = String.format("SIG|%02X|%d|%d|%d", 
             type, amount, balance, System.currentTimeMillis());
         
@@ -419,12 +577,7 @@ public class SmartCardService {
         return sigData.getBytes();
     }
 
-    // ====================== TRỪ TIỀN (cho mua gói) ======================
-    /**
-     * Trừ tiền khi mua gói tập
-     * @param amount Số tiền cần trừ
-     * @return true nếu đủ tiền và trừ thành công
-     */
+    // ====================== TRỪ TIỀN ======================
     public boolean deductBalance(long amount) {
         if (!pinVerified) {
             System.out.println("[CARD] ❌ Chưa xác thực PIN!");
@@ -439,74 +592,57 @@ public class SmartCardService {
 
         balance -= amount;
         System.out.println("[CARD] 💸 Trừ " + formatMoney(amount) + " → Còn: " + formatMoney(balance));
+        
+        saveCardData();
         return true;
     }
 
-    // ====================== UTILITY ======================
-    
-    /**
-     * Reset thẻ về trạng thái ban đầu (để test)
-     */
-    public void reset() {
-        currentPIN = null;
-        tempGeneratedPIN = null;
-        pinTriesRemaining = PIN_TRY_LIMIT;
-        pinVerified = false;
-        mustChangePIN = true;
-        cardRegistered = false;
-        recoveryPhone = null;
-        balance = 0;
-        encryptedInfo = null;
-        avatar = null;
-        System.out.println("[CARD] 🔄 Đã reset thẻ!");
+    // ====================== LOGOUT (Rút thẻ) ======================
+    public void logout() {
+        System.out.println("[CARD] 📤 Rút thẻ: " + (cardId != null ? cardId : "N/A"));
+        resetAllData();
     }
 
-    /**
-     * Kiểm tra thẻ đã đăng ký chưa
-     */
+    // ====================== FULL RESET ======================
+    public void fullReset() {
+        if (currentCardFileName != null) {
+            File file = new File(currentCardFileName);
+            if (file.exists()) {
+                file.delete();
+                System.out.println("[CARD] 🗑️ Đã xóa file thẻ: " + currentCardFileName);
+            }
+        }
+        
+        resetAllData();
+        System.out.println("[CARD] 🔄 Đã reset hoàn toàn thẻ!");
+    }
+    
+    public void reset() {
+        logout();
+    }
+
+    // ====================== UTILITY ======================
+
     public boolean isCardRegistered() {
         return cardRegistered;
     }
 
-    /**
-     * Kiểm tra đã xác thực PIN chưa
-     */
     public boolean isPinVerified() {
         return pinVerified;
     }
 
-    /**
-     * Format tiền VNĐ
-     */
     private String formatMoney(long amount) {
         return String.format("%,d VNĐ", amount);
     }
 
-    // ====================== GIẢ LẬP MÃ HÓA ======================
-    // Trong applet thật: dùng AES với masterKey
-    
-    private byte[] fakeEncrypt(byte[] data) {
-        // XOR đơn giản với masterKey (CHỈ ĐỂ TEST!)
-        byte[] result = new byte[data.length];
-        for (int i = 0; i < data.length; i++) {
-            result[i] = (byte)(data[i] ^ masterKey[i % masterKey.length]);
-        }
-        return result;
-    }
-
-    private byte[] fakeDecrypt(byte[] data) {
-        // XOR ngược lại
-        return fakeEncrypt(data); // XOR 2 lần = về ban đầu
-    }
-
     // ====================== DEBUG ======================
     
-    /**
-     * In trạng thái thẻ (debug)
-     */
     public void printStatus() {
         System.out.println("\n╔═══════════════ TRẠNG THÁI THẺ ═══════════════╗");
+        System.out.println("║ Card File:       " + (currentCardFileName != null ? currentCardFileName : "Chưa chọn"));
+        System.out.println("║ Card ID:         " + (cardId != null ? cardId : "Chưa có"));
         System.out.println("║ Đã đăng ký:      " + (cardRegistered ? "✅ Có" : "❌ Chưa"));
+        System.out.println("║ PIN hiện tại:    " + (currentPIN != null ? currentPIN : "Chưa có"));
         System.out.println("║ PIN verified:    " + (pinVerified ? "✅ Có" : "❌ Chưa"));
         System.out.println("║ Phải đổi PIN:    " + (mustChangePIN ? "⚠️ Có" : "✅ Không"));
         System.out.println("║ Số lần thử PIN:  " + pinTriesRemaining + "/" + PIN_TRY_LIMIT);
@@ -515,52 +651,5 @@ public class SmartCardService {
         System.out.println("║ Có avatar:       " + (avatar != null ? "✅ Có" : "❌ Chưa"));
         System.out.println("║ SĐT khôi phục:   " + (recoveryPhone != null ? recoveryPhone : "Chưa đăng ký"));
         System.out.println("╚══════════════════════════════════════════════╝\n");
-    }
-
-    // ====================== MAIN TEST ======================
-    public static void main(String[] args) {
-        SmartCardService card = new SmartCardService();
-        
-        System.out.println("\n========== TEST SMARTCARD SERVICE ==========\n");
-        
-        // Test 1: Đăng ký
-        System.out.println("--- Test 1: Đăng ký thẻ mới ---");
-        String pin = card.registerNewCard();
-        card.printStatus();
-        
-        // Test 2: Verify PIN
-        System.out.println("--- Test 2: Verify PIN ---");
-        card.verifyPIN(pin);
-        card.printStatus();
-        
-        // Test 3: Đổi PIN
-        System.out.println("--- Test 3: Đổi PIN ---");
-        card.changePIN("654321");
-        card.printStatus();
-        
-        // Test 4: Nạp tiền
-        System.out.println("--- Test 4: Nạp tiền ---");
-        card.topup(500000);
-        card.topup(300000);
-        System.out.println("Số dư: " + card.getBalance());
-        
-        // Test 5: Update info
-        System.out.println("--- Test 5: Update thông tin ---");
-        card.updateInfo("{\"name\":\"Nguyễn Văn A\",\"phone\":\"0901234567\"}");
-        card.setRecoveryPhone("0901234567");
-        System.out.println("Info: " + card.getInfo());
-        
-        // Test 6: Sign transaction
-        System.out.println("--- Test 6: Ký giao dịch ---");
-        byte[] sig = card.signTransaction((byte)0x01, 500000);
-        System.out.println("Signature: " + new String(sig));
-        
-        // Test 7: Check-in
-        System.out.println("--- Test 7: Check-in ---");
-        card.checkIn();
-        
-        card.printStatus();
-        
-        System.out.println("\n========== TEST HOÀN TẤT ==========");
     }
 }

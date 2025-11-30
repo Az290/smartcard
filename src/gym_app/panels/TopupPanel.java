@@ -390,7 +390,14 @@ public class TopupPanel extends JPanel {
     }
 
     // Refresh khi vào màn hình
-    public void onShow() {
-        updateNewBalance();
+        public void onShow() {
+        // Cập nhật số dư
+        long balance = mainFrame.getCardService().getBalance();
+        lblCurrentBalance.setText(String.format("%,d VNĐ", balance));
+        lblNewBalance.setText(String.format("%,d VNĐ", balance));
+        
+        // Clear form
+        txtAmount.setText("");
+        receiptPanel.setVisible(false);
     }
 }

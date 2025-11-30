@@ -152,52 +152,62 @@ public class UnblockPinPanel extends JPanel {
         return panel;
     }
 
-    private void doUnblock() {
-        String phone = txtPhone.getText().trim();
+  private void doUnblock() {
+    String phone = txtPhone.getText().trim();
 
-        // Validate
-        if (!phone.matches("\\d{10,11}")) {
-            showError("Số điện thoại phải có 10-11 chữ số!");
-            txtPhone.requestFocus();
-            return;
-        }
-
-        // Confirm
-        int confirm = JOptionPane.showConfirmDialog(this,
-            "<html><center>" +
-            "<p>Bạn có chắc muốn lấy lại mã PIN?</p>" +
-            "<p>Số điện thoại: <b>" + phone + "</b></p>" +
-            "</center></html>",
-            "Xác nhận",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE
-        );
-
-        if (confirm != JOptionPane.YES_OPTION) return;
-
-        // Call SmartCard
-        String newPin = mainFrame.getCardService().unblockAndGenerateNewPIN(phone);
-
-        if (newPin != null) {
-            // Show result
-            lblNewPin.setText(formatPin(newPin));
-            resultPanel.setVisible(true);
-
-            JOptionPane.showMessageDialog(this,
-                "<html><center>" +
-                "<h2>✅ MỞ KHÓA THÀNH CÔNG!</h2>" +
-                "<p>PIN mới của bạn: <b style='font-size:24px; color:green'>" + newPin + "</b></p>" +
-                "<p style='color:orange'>⚠️ Vui lòng đổi PIN ngay sau khi đăng nhập!</p>" +
-                "</center></html>",
-                "Thành công",
-                JOptionPane.INFORMATION_MESSAGE
-            );
-
-        } else {
-            showError("Số điện thoại không đúng hoặc chưa được đăng ký khôi phục!\n" +
-                "Vui lòng liên hệ quầy lễ tân để được hỗ trợ.");
-        }
+    if (!phone.matches("\\d{10,11}")) {
+        showError("Số điện thoại phải có 10-11 chữ số!");
+        txtPhone.requestFocus();
+        return;
     }
+
+    // *** TÌM VÀ LOAD THẺ THEO SĐT ***
+    if (!mainFrame.getCardService().findAndLoadCardByPhone(phone)) {
+        showError("Không tìm thấy thẻ với SĐT này!\nVui lòng kiểm tra lại hoặc liên hệ quầy.");
+        return;
+    }
+
+    // Confirm
+    int confirm = JOptionPane.showConfirmDialog(this,
+        "<html><center>" +
+        "<p>Tìm thấy thẻ: <b>" + mainFrame.getCardService().getCardId() + "</b></p>" +
+        "<p>Bạn có chắc muốn lấy lại mã PIN?</p>" +
+        "</center></html>",
+        "Xác nhận",
+        JOptionPane.YES_NO_OPTION,
+        JOptionPane.QUESTION_MESSAGE
+    );
+
+    if (confirm != JOptionPane.YES_OPTION) {
+        mainFrame.getCardService().logout();
+        return;
+    }
+
+    // Sinh PIN mới
+    String newPin = mainFrame.getCardService().unblockAndGenerateNewPIN(phone);
+
+    if (newPin != null) {
+        lblNewPin.setText(formatPin(newPin));
+        resultPanel.setVisible(true);
+
+        JOptionPane.showMessageDialog(this,
+            "<html><center>" +
+            "<h2>✅ MỞ KHÓA THÀNH CÔNG!</h2>" +
+            "<p>PIN mới: <b style='font-size:24px; color:green'>" + newPin + "</b></p>" +
+            "<p style='color:orange'>⚠️ Vui lòng đổi PIN ngay sau khi đăng nhập!</p>" +
+            "</center></html>",
+            "Thành công",
+            JOptionPane.INFORMATION_MESSAGE
+        );
+        
+        // Rút thẻ ra
+        mainFrame.getCardService().logout();
+
+    } else {
+        showError("Không thể tạo PIN mới!");
+        mainFrame.getCardService().logout();
+    }
+}
 
     private String formatPin(String pin) {
         if (pin.length() == 6) {

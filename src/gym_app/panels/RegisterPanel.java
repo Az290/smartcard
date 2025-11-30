@@ -18,6 +18,9 @@ public class RegisterPanel extends JPanel {
     private JTextField txtPhone;
     private JTextField txtBirthDate;
     private JLabel lblGeneratedPin;
+    private JPanel pinPanel;
+    private GymButton btnRegister;
+    private GymButton btnContinue;
 
     public RegisterPanel(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
@@ -36,7 +39,7 @@ public class RegisterPanel extends JPanel {
             BorderFactory.createLineBorder(new Color(46, 204, 113), 2),
             new EmptyBorder(30, 50, 30, 50)
         ));
-        container.setPreferredSize(new Dimension(500, 600));
+        container.setPreferredSize(new Dimension(500, 650));
 
         // Header
         JLabel title = new JLabel("📝 ĐĂNG KÝ THẺ THÀNH VIÊN");
@@ -50,65 +53,34 @@ public class RegisterPanel extends JPanel {
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Form fields
-        txtName = createTextField("Họ và tên *");
-        txtPhone = createTextField("Số điện thoại * (10-11 số)");
-        txtBirthDate = createTextField("Ngày sinh (DD/MM/YYYY)");
+        txtName = createTextField();
+        txtPhone = createTextField();
+        txtBirthDate = createTextField();
 
-        // PIN display
-        JPanel pinPanel = new JPanel();
-        pinPanel.setLayout(new BoxLayout(pinPanel, BoxLayout.Y_AXIS));
-        pinPanel.setBackground(new Color(50, 50, 65));
-        pinPanel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(241, 196, 15)),
-            new EmptyBorder(15, 20, 15, 20)
-        ));
-        pinPanel.setMaximumSize(new Dimension(350, 100));
+        // PIN display panel
+        pinPanel = createPinPanel();
         pinPanel.setVisible(false);
 
-        JLabel lblPinTitle = new JLabel("🔑 MÃ PIN CỦA BẠN");
-        lblPinTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblPinTitle.setForeground(new Color(241, 196, 15));
-        lblPinTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        lblGeneratedPin = new JLabel("------");
-        lblGeneratedPin.setFont(new Font("Consolas", Font.BOLD, 36));
-        lblGeneratedPin.setForeground(Color.WHITE);
-        lblGeneratedPin.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel lblPinNote = new JLabel("⚠️ Hãy ghi nhớ hoặc chụp lại!");
-        lblPinNote.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblPinNote.setForeground(new Color(231, 76, 60));
-        lblPinNote.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        pinPanel.add(lblPinTitle);
-        pinPanel.add(Box.createVerticalStrut(10));
-        pinPanel.add(lblGeneratedPin);
-        pinPanel.add(Box.createVerticalStrut(5));
-        pinPanel.add(lblPinNote);
-
         // Buttons
-        GymButton btnRegister = GymButton.success("✓ ĐĂNG KÝ NGAY");
+        btnRegister = GymButton.success("✓ ĐĂNG KÝ NGAY");
         btnRegister.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnRegister.setMaximumSize(new Dimension(300, 45));
-        btnRegister.addActionListener(e -> doRegister(pinPanel));
+        btnRegister.addActionListener(e -> doRegister());
+
+        btnContinue = GymButton.primary("→ TIẾP TỤC ĐĂNG NHẬP");
+        btnContinue.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnContinue.setMaximumSize(new Dimension(300, 45));
+        btnContinue.setVisible(false);
+        btnContinue.addActionListener(e -> {
+            clearForm();
+            mainFrame.showScreen(MainFrame.SCREEN_LOGIN);
+        });
 
         GymButton btnBack = new GymButton("← Quay lại", new Color(100, 100, 120));
         btnBack.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnBack.setMaximumSize(new Dimension(300, 40));
         btnBack.addActionListener(e -> {
             clearForm();
-            mainFrame.showScreen(MainFrame.SCREEN_LOGIN);
-        });
-
-        GymButton btnContinue = GymButton.primary("→ TIẾP TỤC ĐĂNG NHẬP");
-        btnContinue.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnContinue.setMaximumSize(new Dimension(300, 45));
-        btnContinue.setVisible(false);
-        btnContinue.addActionListener(e -> {
-            clearForm();
-            pinPanel.setVisible(false);
-            btnContinue.setVisible(false);
-            btnRegister.setVisible(true);
             mainFrame.showScreen(MainFrame.SCREEN_LOGIN);
         });
 
@@ -131,13 +103,10 @@ public class RegisterPanel extends JPanel {
         container.add(Box.createVerticalStrut(15));
         container.add(btnBack);
 
-        // Store reference for visibility toggle
-        btnRegister.putClientProperty("continueBtn", btnContinue);
-
         add(container);
     }
 
-    private JTextField createTextField(String placeholder) {
+    private JTextField createTextField() {
         JTextField tf = new JTextField();
         tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         tf.setMaximumSize(new Dimension(350, 40));
@@ -148,25 +117,6 @@ public class RegisterPanel extends JPanel {
             BorderFactory.createLineBorder(new Color(100, 100, 120)),
             new EmptyBorder(8, 12, 8, 12)
         ));
-        
-        // Placeholder effect
-        tf.setText(placeholder);
-        tf.setForeground(Color.GRAY);
-        tf.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent e) {
-                if (tf.getText().equals(placeholder)) {
-                    tf.setText("");
-                    tf.setForeground(Color.WHITE);
-                }
-            }
-            public void focusLost(java.awt.event.FocusEvent e) {
-                if (tf.getText().isEmpty()) {
-                    tf.setText(placeholder);
-                    tf.setForeground(Color.GRAY);
-                }
-            }
-        });
-        
         return tf;
     }
 
@@ -175,6 +125,7 @@ public class RegisterPanel extends JPanel {
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(new Color(40, 40, 55));
         p.setMaximumSize(new Dimension(350, 70));
+        p.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lbl = new JLabel(label);
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -190,66 +141,104 @@ public class RegisterPanel extends JPanel {
         return p;
     }
 
-    private void doRegister(JPanel pinPanel) {
-        String name = txtName.getText().trim();
-        String phone = txtPhone.getText().trim();
+    private JPanel createPinPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(new Color(50, 50, 65));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(241, 196, 15)),
+            new EmptyBorder(15, 20, 15, 20)
+        ));
+        panel.setMaximumSize(new Dimension(350, 100));
+        panel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Validate
-        if (name.isEmpty() || name.equals("Họ và tên *")) {
-            showError("Vui lòng nhập họ tên!");
-            return;
-        }
-        if (!phone.matches("\\d{10,11}")) {
-            showError("Số điện thoại phải có 10-11 chữ số!");
-            return;
-        }
+        JLabel lblPinTitle = new JLabel("🔑 MÃ PIN CỦA BẠN");
+        lblPinTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblPinTitle.setForeground(new Color(241, 196, 15));
+        lblPinTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Đăng ký với SmartCard
-        String pin = mainFrame.getCardService().registerNewCard();
+        lblGeneratedPin = new JLabel("------");
+        lblGeneratedPin.setFont(new Font("Consolas", Font.BOLD, 36));
+        lblGeneratedPin.setForeground(Color.WHITE);
+        lblGeneratedPin.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        if (pin != null) {
-            // Lưu thông tin vào card
-            mainFrame.getCardService().updateInfo(name + "|" + phone);
-            mainFrame.getCardService().setRecoveryPhone(phone);
+        JLabel lblPinNote = new JLabel("⚠️ Hãy ghi nhớ hoặc chụp lại!");
+        lblPinNote.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblPinNote.setForeground(new Color(231, 76, 60));
+        lblPinNote.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-            // Tạo Card ID
-            String cardId = SecurityUtils.generateCardId();
+        panel.add(lblPinTitle);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(lblGeneratedPin);
+        panel.add(Box.createVerticalStrut(5));
+        panel.add(lblPinNote);
 
-            // Lưu DB
-            mainFrame.getDbService().registerMember(name, phone, cardId);
-
-            // Hiển thị PIN
-            lblGeneratedPin.setText(formatPin(pin));
-            pinPanel.setVisible(true);
-
-            // Hiện nút tiếp tục
-            JButton continueBtn = (JButton) ((JButton)pinPanel.getParent()
-                .getComponent(9)).getClientProperty("continueBtn");
-            if (continueBtn != null) {
-                continueBtn.setVisible(true);
-            }
-
-            // Ẩn nút đăng ký
-            // btnRegister.setVisible(false); // cần reference
-
-            JOptionPane.showMessageDialog(this,
-                "<html><center>" +
-                "<h2>🎉 ĐĂNG KÝ THÀNH CÔNG!</h2>" +
-                "<p>Mã thẻ: <b>" + cardId + "</b></p>" +
-                "<p>PIN của bạn: <b style='font-size:24px; color:red'>" + pin + "</b></p>" +
-                "<br><p>⚠️ Vui lòng đổi PIN ngay lần đăng nhập đầu!</p>" +
-                "</center></html>",
-                "Thành công",
-                JOptionPane.INFORMATION_MESSAGE
-            );
-
-        } else {
-            showError("Đăng ký thất bại! Thẻ đã được kích hoạt trước đó.");
-        }
+        return panel;
     }
 
+  private void doRegister() {
+    String name = txtName.getText().trim();
+    String phone = txtPhone.getText().trim();
+    String birthDate = txtBirthDate.getText().trim();
+
+    // Validate
+    if (name.isEmpty() || name.length() < 2) {
+        showError("Vui lòng nhập họ tên hợp lệ!");
+        txtName.requestFocus();
+        return;
+    }
+    if (!phone.matches("\\d{10,11}")) {
+        showError("Số điện thoại phải có 10-11 chữ số!");
+        txtPhone.requestFocus();
+        return;
+    }
+
+    // *** KIỂM TRA SĐT ĐÃ ĐĂNG KÝ CHƯA ***
+    if (mainFrame.getCardService().isPhoneRegistered(phone)) {
+        showError("Số điện thoại này đã được đăng ký!\nVui lòng dùng SĐT khác hoặc đăng nhập.");
+        txtPhone.requestFocus();
+        return;
+    }
+
+    // Đăng ký thẻ mới
+    String pin = mainFrame.getCardService().registerNewCard();
+
+    if (pin != null) {
+        // Lưu thông tin: name|phone|email|birthDate|address
+        String info = String.join("|", name, phone, "", birthDate, "");
+        mainFrame.getCardService().updateInfo(info);
+        mainFrame.getCardService().setRecoveryPhone(phone);
+
+        // Lưu DB
+        String cardId = mainFrame.getCardService().getCardId();
+        mainFrame.getDbService().registerMember(name, phone, cardId);
+
+        // Hiển thị PIN
+        lblGeneratedPin.setText(formatPin(pin));
+        pinPanel.setVisible(true);
+        btnContinue.setVisible(true);
+        btnRegister.setVisible(false);
+
+        JOptionPane.showMessageDialog(this,
+            "<html><center>" +
+            "<h2>🎉 ĐĂNG KÝ THÀNH CÔNG!</h2>" +
+            "<p>Mã thẻ: <b>" + cardId + "</b></p>" +
+            "<p>PIN: <b style='font-size:24px; color:red'>" + pin + "</b></p>" +
+            "<br><p>⚠️ Hãy đổi PIN ngay lần đăng nhập đầu!</p>" +
+            "</center></html>",
+            "Thành công",
+            JOptionPane.INFORMATION_MESSAGE
+        );
+        
+        // Rút thẻ ra để người dùng phải đăng nhập lại
+        mainFrame.getCardService().logout();
+
+    } else {
+        showError("Đăng ký thất bại!");
+    }
+}
+
     private String formatPin(String pin) {
-        // Format: 123 456
         if (pin.length() == 6) {
             return pin.substring(0, 3) + " " + pin.substring(3);
         }
@@ -261,12 +250,16 @@ public class RegisterPanel extends JPanel {
     }
 
     private void clearForm() {
-        txtName.setText("Họ và tên *");
-        txtName.setForeground(Color.GRAY);
-        txtPhone.setText("Số điện thoại * (10-11 số)");
-        txtPhone.setForeground(Color.GRAY);
-        txtBirthDate.setText("Ngày sinh (DD/MM/YYYY)");
-        txtBirthDate.setForeground(Color.GRAY);
+        txtName.setText("");
+        txtPhone.setText("");
+        txtBirthDate.setText("");
         lblGeneratedPin.setText("------");
+        pinPanel.setVisible(false);
+        btnRegister.setVisible(true);
+        btnContinue.setVisible(false);
+    }
+
+    public void onShow() {
+        clearForm();
     }
 }

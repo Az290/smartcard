@@ -374,8 +374,12 @@ public class BuyPackagePanel extends JPanel {
         JOptionPane.showMessageDialog(this, msg, "Lỗi", JOptionPane.ERROR_MESSAGE);
     }
 
-    public void onShow() {
-        updateBalance();
+       public void onShow() {
+        // Cập nhật số dư từ SmartCard
+        long balance = mainFrame.getCardService().getBalance();
+        lblBalance.setText(String.format("%,d VNĐ", balance));
+        
+        // Reload packages và trainers
         loadData();
     }
 
@@ -410,4 +414,5 @@ public class BuyPackagePanel extends JPanel {
                 trainer.experienceYears + " năm KN";
         }
     }
+    
 }
