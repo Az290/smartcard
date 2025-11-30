@@ -123,10 +123,10 @@ public class ProfileEditPanel extends JPanel {
         btnUpload.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnUpload.addActionListener(e -> uploadAvatar());
 
-        JLabel lblNote = new JLabel("<html><center>Ảnh tối đa 1KB<br>Định dạng: JPG, PNG</center></html>");
-        lblNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblNote.setForeground(Color.GRAY);
-        lblNote.setAlignmentX(Component.CENTER_ALIGNMENT);
+       JLabel lblNote = new JLabel("<html><center>Ảnh tối đa 10KB<br>Định dạng: JPG, PNG<br>Tự động resize về 150x150</center></html>");
+       lblNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+       lblNote.setForeground(Color.GRAY);
+       lblNote.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         panel.add(titleLabel);
         panel.add(Box.createVerticalStrut(15));
@@ -224,52 +224,67 @@ public class ProfileEditPanel extends JPanel {
         lblAvatar.setIcon(new ImageIcon(img));
     }
 
-    private void uploadAvatar() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new FileNameExtensionFilter("Image files", "jpg", "jpeg", "png"));
-        
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-                File file = chooser.getSelectedFile();
+private void uploadAvatar() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setFileFilter(new FileNameExtensionFilter("Image files", "jpg", "jpeg", "png"));
+    
+    if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        try {
+            File file = chooser.getSelectedFile();
+            
+            // Read và resize ảnh
+            BufferedImage originalImg = ImageIO.read(file);
+            
+            if (originalImg == null) {
+                showError("Không thể đọc file ảnh!");
+                return;
+            }
+            
+            // Resize về 150x150
+            BufferedImage resizedImg = resizeImage(originalImg, 150, 150);
+            
+            // Nén JPEG với chất lượng cao
+            byte[] imageData = compressImage(resizedImg, 0.85f); // 85% quality
+            
+            // *** SỬA ĐOẠN NÀY: Kiểm tra với 10KB ***
+            if (imageData.length > 10240) { // Thay vì 1024
+                // Thử nén thêm
+                imageData = compressImage(resizedImg, 0.7f); // 70% quality
                 
-                // Read and resize image
-                BufferedImage originalImg = ImageIO.read(file);
-                BufferedImage resizedImg = resizeImage(originalImg, 150, 150);
-                
-                // Convert to bytes
-                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                ImageIO.write(resizedImg, "jpg", baos);
-                avatarData = baos.toByteArray();
-                
-                // Check size
-                if (avatarData.length > 1024) {
-                    // Compress more
-                    avatarData = compressImage(resizedImg, 0.5f);
+                if (imageData.length > 10240) {
+                    // Nén tối đa
+                    imageData = compressImage(resizedImg, 0.5f); // 50% quality
                     
-                    if (avatarData.length > 1024) {
-                        JOptionPane.showMessageDialog(this,
-                            "Ảnh quá lớn sau khi nén! Vui lòng chọn ảnh nhỏ hơn.",
-                            "Lỗi", JOptionPane.WARNING_MESSAGE);
+                    if (imageData.length > 10240) {
+                        showError("Ảnh vẫn quá lớn sau khi nén!\nKích thước: " + 
+                            String.format("%.1f KB", imageData.length / 1024.0) + 
+                            "\nVui lòng chọn ảnh khác hoặc giảm kích thước.");
                         return;
                     }
                 }
-
-                // Display
-                lblAvatar.setIcon(new ImageIcon(resizedImg));
-                
-                JOptionPane.showMessageDialog(this,
-                    "✅ Đã chọn ảnh! Nhấn 'Lưu thay đổi' để cập nhật.",
-                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(this,
-                    "Lỗi tải ảnh: " + ex.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
+
+            // Lưu vào biến tạm
+            avatarData = imageData;
+            
+            // Hiển thị preview
+            lblAvatar.setIcon(new ImageIcon(resizedImg));
+            
+            JOptionPane.showMessageDialog(this,
+                "<html><center>" +
+                "<h3>✅ Đã chọn ảnh!</h3>" +
+                "<p>Kích thước: <b>" + String.format("%.1f KB", imageData.length / 1024.0) + "</b></p>" +
+                "<p>Nhấn 'Lưu thay đổi' để cập nhật.</p>" +
+                "</center></html>",
+                "Thành công", 
+                JOptionPane.INFORMATION_MESSAGE);
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            showError("Lỗi tải ảnh: " + ex.getMessage());
         }
     }
-
+}
     private BufferedImage resizeImage(BufferedImage original, int width, int height) {
         BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = resized.createGraphics();

@@ -13,7 +13,7 @@ public class SmartCardService {
     // ====================== CONFIG ======================
     private static final int PIN_TRY_LIMIT = 5;
     private static final int PIN_SIZE = 6;
-    private static final int AVATAR_MAX_SIZE = 1024;
+    private static final int AVATAR_MAX_SIZE = 10240;
     private static final int INFO_MAX_SIZE = 256;
     
     // Thư mục lưu các thẻ

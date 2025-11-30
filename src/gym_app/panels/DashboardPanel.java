@@ -350,50 +350,127 @@ public class DashboardPanel extends JPanel {
         return row;
     }
 
-    private void uploadAvatar() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-            "Image files", "jpg", "jpeg", "png", "gif"
-        ));
+   private void uploadAvatar() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+        "Image files", "jpg", "jpeg", "png", "gif"
+    ));
 
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-                java.io.File file = chooser.getSelectedFile();
-                byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
+    if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        try {
+            java.io.File file = chooser.getSelectedFile();
+            
+            // Read và resize ảnh
+            java.awt.image.BufferedImage originalImg = javax.imageio.ImageIO.read(file);
+            
+            if (originalImg == null) {
+                JOptionPane.showMessageDialog(this, 
+                    "Không thể đọc file ảnh!",
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            // Resize về 150x150
+            java.awt.image.BufferedImage resizedImg = new java.awt.image.BufferedImage(
+                150, 150, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = resizedImg.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, 
+                              java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, 
+                              java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, 
+                              java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g.drawImage(originalImg, 0, 0, 150, 150, null);
+            g.dispose();
+            
+            // Nén JPEG
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageWriter writer = javax.imageio.ImageIO.getImageWritersByFormatName("jpg").next();
+            javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+            
+            if (param.canWriteCompressed()) {
+                param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                param.setCompressionQuality(0.85f); // 85% quality
+            }
+            
+            writer.setOutput(javax.imageio.ImageIO.createImageOutputStream(baos));
+            writer.write(null, new javax.imageio.IIOImage(resizedImg, null, null), param);
+            writer.dispose();
+            
+            byte[] data = baos.toByteArray();
+            
+            // *** SỬA ĐOẠN NÀY: Kiểm tra với 10KB ***
+            if (data.length > 10240) { // Thay vì 1024
+                // Thử nén thêm với quality thấp hơn
+                baos = new java.io.ByteArrayOutputStream();
+                writer = javax.imageio.ImageIO.getImageWritersByFormatName("jpg").next();
+                param = writer.getDefaultWriteParam();
                 
-                // Resize if needed (max 1KB for card)
-                if (data.length > 1024) {
+                if (param.canWriteCompressed()) {
+                    param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                    param.setCompressionQuality(0.7f); // 70% quality
+                }
+                
+                writer.setOutput(javax.imageio.ImageIO.createImageOutputStream(baos));
+                writer.write(null, new javax.imageio.IIOImage(resizedImg, null, null), param);
+                writer.dispose();
+                
+                data = baos.toByteArray();
+                
+                if (data.length > 10240) {
                     JOptionPane.showMessageDialog(this, 
-                        "Ảnh quá lớn! Vui lòng chọn ảnh < 1KB",
+                        "Ảnh quá lớn! (" + String.format("%.1f KB", data.length / 1024.0) + ")\n" +
+                        "Vui lòng chọn ảnh khác.",
                         "Lỗi", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
-
-                if (mainFrame.getCardService().uploadAvatar(data)) {
-                    userCard.setAvatar(data);
-                    JOptionPane.showMessageDialog(this, 
-                        "✅ Đã cập nhật ảnh đại diện!",
-                        "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(this, 
-                    "Lỗi tải ảnh: " + ex.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
+
+            if (mainFrame.getCardService().uploadAvatar(data)) {
+                userCard.setAvatar(data);
+                JOptionPane.showMessageDialog(this, 
+                    "<html><center>" +
+                    "<h3>✅ Cập nhật ảnh thành công!</h3>" +
+                    "<p>Kích thước: <b>" + String.format("%.1f KB", data.length / 1024.0) + "</b></p>" +
+                    "</center></html>",
+                    "Thành công", 
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, 
+                "Lỗi tải ảnh: " + ex.getMessage(),
+                "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
+}
+   
 
     // ==================== PUBLIC METHODS ====================
 
     public void setUserInfo(String cardId, String name, String phone) {
-        lblWelcome.setText("👋 Xin chào, " + name + "!");
-        userCard.setUserInfo(cardId, name, phone);
-        userCard.setBalance(mainFrame.getCardService().getBalance());
+    lblWelcome.setText("👋 Xin chào, " + name + "!");
+    userCard.setUserInfo(cardId, name, phone);
+    userCard.setBalance(mainFrame.getCardService().getBalance());
+    
+    // *** THÊM: Load avatar từ thẻ ***
+    byte[] avatar = mainFrame.getCardService().getAvatar();
+    if (avatar != null && avatar.length > 0) {
+        userCard.setAvatar(avatar);
     }
+}
 
     public void refreshData() {
-        userCard.setBalance(mainFrame.getCardService().getBalance());
-        loadDashboardContent();
+    // Cập nhật số dư
+    userCard.setBalance(mainFrame.getCardService().getBalance());
+    
+    // *** THÊM: Load avatar từ thẻ ***
+    byte[] avatar = mainFrame.getCardService().getAvatar();
+    if (avatar != null && avatar.length > 0) {
+        userCard.setAvatar(avatar);
     }
+    
+    // Reload nội dung dashboard
+    loadDashboardContent();
+}
 }
