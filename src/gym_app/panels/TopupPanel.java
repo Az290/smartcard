@@ -9,7 +9,8 @@ import java.awt.*;
 import java.util.Base64;
 
 /**
- * Màn hình nạp tiền
+ * Màn hình nạp tiền - Giới hạn theo applet
+ * 1 đơn vị = 10,000 VNĐ, max 255 đơn vị/lần = 2,550,000 VNĐ
  */
 public class TopupPanel extends JPanel {
 
@@ -19,8 +20,11 @@ public class TopupPanel extends JPanel {
     private JLabel lblNewBalance;
     private JPanel receiptPanel;
 
-    // Các mức nạp nhanh
-    private static final int[] QUICK_AMOUNTS = {100000, 200000, 500000, 1000000, 2000000, 5000000};
+    private static final int BALANCE_UNIT = 10000;
+    private static final int MAX_TOPUP_PER_TX = 255 * BALANCE_UNIT;
+    private static final int MIN_TOPUP = BALANCE_UNIT;
+    
+    private static final int[] QUICK_AMOUNTS = {100000, 200000, 500000, 1000000, 2000000, 2500000};
 
     public TopupPanel(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
@@ -31,35 +35,29 @@ public class TopupPanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(new Color(30, 30, 45));
 
-        // Side Menu
         add(new SideMenu(mainFrame), BorderLayout.WEST);
 
-        // Main Content
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(new Color(30, 30, 45));
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        // Header
         JLabel title = new JLabel("💰 NẠP TIỀN VÀO THẺ");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(46, 204, 113));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Balance info
+        JLabel lblLimit = new JLabel("<html><span style='color:#f1c40f'>⚠️ Giới hạn: " + 
+            formatMoney(MIN_TOPUP) + " - " + formatMoney(MAX_TOPUP_PER_TX) + "/lần</span></html>");
+        lblLimit.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblLimit.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JPanel balancePanel = createBalancePanel();
-
-        // Quick amount buttons
         JPanel quickPanel = createQuickAmountPanel();
-
-        // Custom amount
         JPanel customPanel = createCustomAmountPanel();
-
-        // Receipt preview
         receiptPanel = createReceiptPanel();
         receiptPanel.setVisible(false);
 
-        // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         buttonPanel.setBackground(new Color(30, 30, 45));
         buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -78,9 +76,10 @@ public class TopupPanel extends JPanel {
         buttonPanel.add(btnTopup);
         buttonPanel.add(btnBack);
 
-        // Layout
         content.add(title);
-        content.add(Box.createVerticalStrut(25));
+        content.add(Box.createVerticalStrut(10));
+        content.add(lblLimit);
+        content.add(Box.createVerticalStrut(20));
         content.add(balancePanel);
         content.add(Box.createVerticalStrut(25));
         content.add(quickPanel);
@@ -103,7 +102,6 @@ public class TopupPanel extends JPanel {
         panel.setMaximumSize(new Dimension(600, 100));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Current balance
         JPanel currentPanel = new JPanel();
         currentPanel.setLayout(new BoxLayout(currentPanel, BoxLayout.Y_AXIS));
         currentPanel.setBackground(new Color(40, 40, 55));
@@ -124,7 +122,6 @@ public class TopupPanel extends JPanel {
         currentPanel.add(Box.createVerticalStrut(5));
         currentPanel.add(lblCurrentBalance);
 
-        // New balance (after topup)
         JPanel newPanel = new JPanel();
         newPanel.setLayout(new BoxLayout(newPanel, BoxLayout.Y_AXIS));
         newPanel.setBackground(new Color(40, 40, 55));
@@ -157,7 +154,7 @@ public class TopupPanel extends JPanel {
         panel.setBackground(new Color(30, 30, 45));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("⚡ Chọn nhanh số tiền:");
+        JLabel title = new JLabel("⚡ Chọn nhanh:");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(Color.WHITE);
 
@@ -204,7 +201,7 @@ public class TopupPanel extends JPanel {
         panel.setBackground(new Color(30, 30, 45));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("✏️ Hoặc nhập số tiền khác:");
+        JLabel title = new JLabel("✏️ Hoặc nhập số tiền:");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(Color.WHITE);
 
@@ -222,7 +219,6 @@ public class TopupPanel extends JPanel {
         ));
         txtAmount.setPreferredSize(new Dimension(250, 50));
 
-        // Update balance preview on input
         txtAmount.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { updateNewBalance(); }
             public void removeUpdate(javax.swing.event.DocumentEvent e) { updateNewBalance(); }
@@ -282,27 +278,37 @@ public class TopupPanel extends JPanel {
                 return;
             }
 
-            int amount = Integer.parseInt(amountStr);
+            long amount = Long.parseLong(amountStr);
 
-            if (amount < 10000) {
-                showError("Số tiền tối thiểu là 10,000 VNĐ!");
+            if (amount < MIN_TOPUP) {
+                showError("Số tiền tối thiểu là " + formatMoney(MIN_TOPUP) + "!");
                 return;
             }
 
-            if (amount > 50000000) {
-                showError("Số tiền tối đa là 50,000,000 VNĐ!");
+            if (amount > MAX_TOPUP_PER_TX) {
+                showError("Số tiền tối đa mỗi lần là " + formatMoney(MAX_TOPUP_PER_TX) + "!");
                 return;
             }
+            
+            // Làm tròn
+            long roundedAmount = (amount / BALANCE_UNIT) * BALANCE_UNIT;
+            if (roundedAmount != amount) {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                    "Số tiền sẽ làm tròn thành " + formatMoney(roundedAmount) + "\nĐồng ý?",
+                    "Xác nhận",
+                    JOptionPane.YES_NO_OPTION
+                );
+                if (confirm != JOptionPane.YES_OPTION) return;
+                amount = roundedAmount;
+            }
 
-            // Nạp tiền qua SmartCard
             if (mainFrame.getCardService().topup(amount)) {
                 long newBalance = mainFrame.getCardService().getBalance();
 
-                // Ký giao dịch
                 byte[] signature = mainFrame.getCardService().signTransaction((byte) 0x01, amount);
-                String sigBase64 = signature != null ? Base64.getEncoder().encodeToString(signature) : "";
+                String sigBase64 = signature != null && signature.length > 0 ? 
+                    Base64.getEncoder().encodeToString(signature) : "";
 
-                // Log vào DB
                 mainFrame.getDbService().logTransaction(
                     mainFrame.getCurrentCardId(),
                     "TOPUP",
@@ -311,10 +317,7 @@ public class TopupPanel extends JPanel {
                 );
                 mainFrame.getDbService().updateBalance(mainFrame.getCurrentCardId(), newBalance);
 
-                // Hiển thị receipt
                 showReceipt(amount, newBalance, sigBase64);
-
-                // Update UI
                 updateNewBalance();
 
                 JOptionPane.showMessageDialog(this,
@@ -330,7 +333,7 @@ public class TopupPanel extends JPanel {
                 txtAmount.setText("");
 
             } else {
-                showError("Nạp tiền thất bại! Vui lòng thử lại.");
+                showError("Nạp tiền thất bại!");
             }
 
         } catch (NumberFormatException e) {
@@ -338,7 +341,7 @@ public class TopupPanel extends JPanel {
         }
     }
 
-    private void showReceipt(int amount, long newBalance, String signature) {
+    private void showReceipt(long amount, long newBalance, String signature) {
         receiptPanel.removeAll();
         receiptPanel.setVisible(true);
 
@@ -350,17 +353,15 @@ public class TopupPanel extends JPanel {
             "<html>" +
             "<p>Mã thẻ: <b>%s</b></p>" +
             "<p>Khách hàng: <b>%s</b></p>" +
-            "<p>Số tiền nạp: <b style='color:#2ecc71'>%s</b></p>" +
+            "<p>Số tiền: <b style='color:#2ecc71'>%s</b></p>" +
             "<p>Số dư mới: <b>%s</b></p>" +
             "<p>Thời gian: %s</p>" +
-            "<p style='font-size:10px; color:gray'>Chữ ký: %s...</p>" +
             "</html>",
             mainFrame.getCurrentCardId(),
             mainFrame.getCurrentName(),
             formatMoney(amount),
             formatMoney(newBalance),
-            java.time.LocalDateTime.now().toString().replace("T", " "),
-            signature.length() > 20 ? signature.substring(0, 20) : signature
+            java.time.LocalDateTime.now().toString().replace("T", " ").substring(0, 19)
         );
 
         JLabel receiptLabel = new JLabel(receiptText);
@@ -389,14 +390,10 @@ public class TopupPanel extends JPanel {
         JOptionPane.showMessageDialog(this, msg, "Lỗi", JOptionPane.ERROR_MESSAGE);
     }
 
-    // Refresh khi vào màn hình
-        public void onShow() {
-        // Cập nhật số dư
+    public void onShow() {
         long balance = mainFrame.getCardService().getBalance();
-        lblCurrentBalance.setText(String.format("%,d VNĐ", balance));
-        lblNewBalance.setText(String.format("%,d VNĐ", balance));
-        
-        // Clear form
+        lblCurrentBalance.setText(formatMoney(balance));
+        lblNewBalance.setText(formatMoney(balance));
         txtAmount.setText("");
         receiptPanel.setVisible(false);
     }

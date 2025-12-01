@@ -1,686 +1,862 @@
 package gym_app;
 
+import com.licel.jcardsim.base.Simulator;
+import javacard.framework.AID;
+import javax.smartcardio.CommandAPDU;
+import javax.smartcardio.ResponseAPDU;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
+import java.security.MessageDigest;
 import java.util.*;
 
 /**
- * SmartCardService - Giả lập JavaCard Applet thegym
- * Hỗ trợ nhiều thẻ, mỗi thẻ 1 file riêng
- * Đăng nhập bằng PIN để tìm thẻ tương ứng
+ * SmartCardService - FULL ENCRYPTION
+ * ✅ Avatar: PC mã hóa → Card lưu encrypted → PC giải mã khi get
+ * ✅ Info: Card mã hóa (vì nhỏ, không chunking)
  */
 public class SmartCardService {
 
     // ====================== CONFIG ======================
+    private static final byte[] APPLET_AID = {
+        (byte) 0xAA, (byte) 0xBB, (byte) 0xCC, (byte) 0xDD, (byte) 0xEE, 0x00
+    };
+
     private static final int PIN_TRY_LIMIT = 5;
     private static final int PIN_SIZE = 6;
     private static final int AVATAR_MAX_SIZE = 10240;
-    private static final int INFO_MAX_SIZE = 256;
-    
-    // Thư mục lưu các thẻ
-    private static final String CARDS_FOLDER = "cards";
-    private static final String CARD_FILE_PREFIX = "card_";
-    private static final String CARD_FILE_EXT = ".dat";
+    private static final int INFO_MAX_SIZE = 1024;
+    private static final int BALANCE_UNIT = 10000;
 
-    // ====================== TRẠNG THÁI THẺ HIỆN TẠI ======================
-    private String currentPIN = null;
-    private String tempGeneratedPIN = null;
+    private static final String CARD_STATE_FILE = "gym_card.state";
+
+    // ====================== APDU COMMANDS ======================
+    private static final byte CLA = (byte) 0x80;
+
+    private static final byte INS_VERIFY_PIN = (byte) 0x10;
+    private static final byte INS_CHANGE_PIN = (byte) 0x11;
+    private static final byte INS_UNBLOCK_PIN = (byte) 0x12;
+
+    private static final byte INS_UPDATE_INFO = (byte) 0x20;
+    private static final byte INS_GET_INFO = (byte) 0x21;
+    private static final byte INS_UPLOAD_AVATAR = (byte) 0x22;
+    private static final byte INS_GET_AVATAR = (byte) 0x23;
+
+    private static final byte INS_TOPUP = (byte) 0x30;
+    private static final byte INS_PAYMENT = (byte) 0x31;
+    private static final byte INS_CHECK_BALANCE = (byte) 0x32;
+
+    private static final byte INS_GET_HISTORY = (byte) 0x40;
+    private static final byte INS_INIT_CRYPTO = (byte) 0x50;
+    private static final byte INS_GET_STATUS = (byte) 0x51;
+    private static final byte INS_HASH_SHA1 = (byte) 0x81;
+    private static final byte INS_SET_AES_KEY = (byte) 0x72;
+
+    // ====================== CRYPTO - PC SIDE ======================
+    private SecretKeySpec desKey;
+    private IvParameterSpec ivSpec;
+    private Cipher desCipher;
+
+    // ====================== JCARDSIM ======================
+    private Simulator simulator;
+    private AID appletAID;
+    private boolean isConnected = false;
+
+    // ====================== STATE ======================
+    private String cardId = "GYM000001";
+    private String recoveryPhone = null;
+    private String currentPIN = "123456";
     private int pinTriesRemaining = PIN_TRY_LIMIT;
     private boolean pinVerified = false;
-    private boolean mustChangePIN = true;
-    private boolean cardRegistered = false;
-    
-    private String cardId = null;
-    private String recoveryPhone = null;
-    private long balance = 0;
-    
-    private String encryptedInfo = null;
-    private byte[] avatar = null;
-    
-    private byte[] masterKey = new byte[16];
-    
-    // File của thẻ hiện tại đang được sử dụng
-    private String currentCardFileName = null;
+    private boolean isFirstLogin = true;
+    private boolean isCardBlocked = false;
+
+    private String savedInfo = null;
+    private byte[] savedAvatar = null;
+    private long savedBalance = 0;
 
     // ====================== CONSTRUCTOR ======================
     public SmartCardService() {
         System.out.println("╔════════════════════════════════════════════════════════╗");
-        System.out.println("║  SMARTCARD SERVICE - CHẾ ĐỘ GIẢ LẬP (SIMULATION)      ║");
-        System.out.println("║  Hỗ trợ nhiều thẻ - Đăng nhập bằng PIN                 ║");
+        System.out.println("║  SMARTCARD SERVICE - JCARDSIM MODE                     ║");
+        System.out.println("║  ✅ FULL ENCRYPTION: PC encrypts Avatar                ║");
+        System.out.println("║  ✅ FULL ENCRYPTION: Card encrypts Info                ║");
+        System.out.println("║  📦 Max Avatar: 10KB | Max Info: 256 bytes             ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
-        
-        // Tạo thư mục cards nếu chưa có
-        File cardsDir = new File(CARDS_FOLDER);
-        if (!cardsDir.exists()) {
-            cardsDir.mkdir();
-            System.out.println("[CARD] 📁 Đã tạo thư mục: " + CARDS_FOLDER);
-        }
-        
-        // KHÔNG tự động load thẻ - chờ người dùng đăng nhập
-        System.out.println("[CARD] 📋 Sẵn sàng. Vui lòng đăng nhập hoặc đăng ký.");
+
+        initPCCrypto("123456");
+        loadCardState();
+        initSimulator();
+        restoreDataToApplet();
     }
 
-    // ====================== TÌM THẺ BẰNG PIN ======================
-    
     /**
-     * Tìm và load thẻ có PIN khớp
-     * @return true nếu tìm thấy
+     * ✅ Khởi tạo crypto PC-side (3DES)
      */
-    public boolean findAndLoadCardByPIN(String pin) {
-        if (pin == null || pin.length() != PIN_SIZE) {
-            System.out.println("[CARD] ❌ PIN phải đúng 6 số!");
-            return false;
+    private void initPCCrypto(String pin) {
+        try {
+            // Derive key từ PIN
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(pin.getBytes("UTF-8"));
+            byte[] keyBytes = Arrays.copyOf(hash, 24); // 3DES key 24 bytes
+            
+            desKey = new SecretKeySpec(keyBytes, "DESede");
+            
+            // IV cố định (hoặc derive từ PIN)
+            byte[] ivBytes = new byte[8];
+            System.arraycopy(hash, 0, ivBytes, 0, 8);
+            ivSpec = new IvParameterSpec(ivBytes);
+            
+            desCipher = Cipher.getInstance("DESede/CBC/PKCS5Padding");
+            
+            System.out.println("[Crypto] ✅ PC-side 3DES initialized");
+        } catch (Exception e) {
+            System.out.println("[Crypto] ❌ Init failed: " + e.getMessage());
+            e.printStackTrace();
         }
-        
-        File cardsDir = new File(CARDS_FOLDER);
-        if (!cardsDir.exists()) {
-            System.out.println("[CARD] ❌ Chưa có thẻ nào!");
-            return false;
-        }
-        
-        File[] files = cardsDir.listFiles((dir, name) -> 
-            name.startsWith(CARD_FILE_PREFIX) && name.endsWith(CARD_FILE_EXT));
-        
-        if (files == null || files.length == 0) {
-            System.out.println("[CARD] ❌ Chưa có thẻ nào được đăng ký!");
-            return false;
-        }
-        
-        // Duyệt qua tất cả các thẻ để tìm PIN khớp
-        for (File file : files) {
-            CardData data = loadCardDataFromFile(file.getAbsolutePath());
-            if (data != null && data.currentPIN != null && data.currentPIN.equals(pin)) {
-                // Tìm thấy! Load thẻ này
-                applyCardData(data);
-                this.currentCardFileName = file.getAbsolutePath();
-                
-                System.out.println("[CARD] ✅ Tìm thấy thẻ: " + cardId);
-                System.out.println("[CARD] 📋 Số dư: " + formatMoney(balance));
-                return true;
-            }
-        }
-        
-        System.out.println("[CARD] ❌ Không tìm thấy thẻ với PIN này!");
-        return false;
-    }
-    
-    public boolean loadCardById(String cardId) {
-    if (cardId == null || cardId.isEmpty()) {
-        System.out.println("[CARD] ❌ Card ID không hợp lệ!");
-        return false;
-    }
-    
-    String fileName = CARDS_FOLDER + File.separator + CARD_FILE_PREFIX + cardId + CARD_FILE_EXT;
-    File cardFile = new File(fileName);
-    
-    if (!cardFile.exists()) {
-        System.out.println("[CARD] ❌ Không tìm thấy thẻ: " + cardId);
-        return false;
-    }
-    
-    CardData data = loadCardDataFromFile(fileName);
-    if (data != null) {
-        applyCardData(data);
-        this.currentCardFileName = fileName;
-        
-        System.out.println("[CARD] ✅ Đã load thẻ: " + cardId);
-        System.out.println("[CARD] 📋 Trạng thái: " + (cardRegistered ? "Đã đăng ký" : "Chưa đăng ký"));
-        System.out.println("[CARD] 🔐 Số lần thử PIN còn: " + pinTriesRemaining);
-        
-        return true;
-    }
-    
-    System.out.println("[CARD] ❌ Không thể load thẻ: " + cardId);
-    return false;
-}
-    
-    /**
-     * Kiểm tra SĐT đã được đăng ký chưa
-     */
-    public boolean isPhoneRegistered(String phone) {
-        if (phone == null || phone.isEmpty()) {
-            return false;
-        }
-        
-        File cardsDir = new File(CARDS_FOLDER);
-        if (!cardsDir.exists()) {
-            return false;
-        }
-        
-        File[] files = cardsDir.listFiles((dir, name) -> 
-            name.startsWith(CARD_FILE_PREFIX) && name.endsWith(CARD_FILE_EXT));
-        
-        if (files == null) {
-            return false;
-        }
-        
-        for (File file : files) {
-            CardData data = loadCardDataFromFile(file.getAbsolutePath());
-            if (data != null && data.recoveryPhone != null && data.recoveryPhone.equals(phone)) {
-                System.out.println("[CARD] ⚠️ SĐT " + phone + " đã được đăng ký!");
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    
-    /**
-     * Tìm và load thẻ bằng SĐT (để khôi phục PIN)
-     */
-    public boolean findAndLoadCardByPhone(String phone) {
-        if (phone == null || phone.isEmpty()) {
-            return false;
-        }
-        
-        File cardsDir = new File(CARDS_FOLDER);
-        if (!cardsDir.exists()) {
-            return false;
-        }
-        
-        File[] files = cardsDir.listFiles((dir, name) -> 
-            name.startsWith(CARD_FILE_PREFIX) && name.endsWith(CARD_FILE_EXT));
-        
-        if (files == null) {
-            return false;
-        }
-        
-        for (File file : files) {
-            CardData data = loadCardDataFromFile(file.getAbsolutePath());
-            if (data != null && data.recoveryPhone != null && data.recoveryPhone.equals(phone)) {
-                // Tìm thấy! Load thẻ này
-                applyCardData(data);
-                this.currentCardFileName = file.getAbsolutePath();
-                
-                System.out.println("[CARD] ✅ Tìm thấy thẻ với SĐT: " + phone);
-                return true;
-            }
-        }
-        
-        System.out.println("[CARD] ❌ Không tìm thấy thẻ với SĐT: " + phone);
-        return false;
     }
 
-    // ====================== PERSISTENCE ======================
-    
-    private void saveCardData() {
-        if (currentCardFileName == null) {
-            System.out.println("[CARD] ❌ Không có thẻ để lưu!");
+    /**
+     * ✅ Update crypto key khi đổi PIN
+     */
+    private void updatePCCrypto(String newPin) {
+        initPCCrypto(newPin);
+    }
+
+    private void initSimulator() {
+        try {
+            simulator = new Simulator();
+            appletAID = new AID(APPLET_AID, (short) 0, (byte) APPLET_AID.length);
+
+            System.out.println("[JCSIM] 🔧 Installing applet...");
+            simulator.installApplet(appletAID, thegym.thegym.class);
+            System.out.println("[JCSIM] ✅ Applet installed!");
+
+            boolean selected = simulator.selectApplet(appletAID);
+            if (selected) {
+                isConnected = true;
+                System.out.println("[JCSIM] ✅ Applet selected!");
+
+                // Init crypto
+                CommandAPDU apdu = new CommandAPDU(CLA, INS_INIT_CRYPTO, 0x00, 0x00, 1);
+                sendAPDU(apdu);
+
+                // Set 3DES key on card
+                byte[] cardKey = derive3DESKey("123456");
+                apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, cardKey);
+                ResponseAPDU resp = sendAPDU(apdu);
+                if (resp != null && resp.getSW() == 0x9000) {
+                    System.out.println("[JCSIM] ✅ Card 3DES key initialized");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ❌ Init error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private byte[] derive3DESKey(String pin) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(pin.getBytes("UTF-8"));
+            return Arrays.copyOf(hash, 24);
+        } catch (Exception e) {
+            byte[] key = new byte[24];
+            byte[] pinBytes = pin.getBytes();
+            for (int i = 0; i < 24; i++) {
+                key[i] = pinBytes[i % pinBytes.length];
+            }
+            return key;
+        }
+    }
+
+    private void restoreDataToApplet() {
+        if (!isConnected) {
             return;
         }
-        
-        try (ObjectOutputStream oos = new ObjectOutputStream(
-                new FileOutputStream(currentCardFileName))) {
-            
-            CardData data = new CardData();
-            data.currentPIN = this.currentPIN;
-            data.pinTriesRemaining = this.pinTriesRemaining;
-            data.mustChangePIN = this.mustChangePIN;
-            data.cardRegistered = this.cardRegistered;
-            data.cardId = this.cardId;
-            data.recoveryPhone = this.recoveryPhone;
-            data.balance = this.balance;
-            data.encryptedInfo = this.encryptedInfo;
-            data.avatar = this.avatar;
-            data.masterKey = this.masterKey;
-            
-            oos.writeObject(data);
-            System.out.println("[CARD] 💾 Đã lưu thẻ: " + cardId);
-            
-        } catch (IOException e) {
-            System.out.println("[CARD] ❌ Lỗi lưu: " + e.getMessage());
+
+        System.out.println("[JCSIM] 🔄 Restoring data to applet...");
+
+        byte[] defaultPin = "123456".getBytes();
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_VERIFY_PIN, 0x00, 0x00, defaultPin);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp == null || resp.getSW() != 0x9000) {
+            System.out.println("[JCSIM] ⚠️ Cannot verify default PIN for restore");
+            return;
         }
+
+        // Restore info
+        if (savedInfo != null || recoveryPhone != null) {
+            restoreInfo(recoveryPhone, savedInfo);
+            System.out.println("[JCSIM] ✅ Info restored");
+        }
+
+        // Restore avatar (ENCRYPTED)
+        if (savedAvatar != null && savedAvatar.length > 0) {
+            restoreAvatarEncrypted(savedAvatar);
+            System.out.println("[JCSIM] ✅ Avatar restored (encrypted)");
+        }
+
+        // Restore balance
+        if (savedBalance > 0) {
+            restoreBalance(savedBalance);
+            System.out.println("[JCSIM] ✅ Balance restored");
+        }
+
+        // Change PIN
+        if (currentPIN != null && !currentPIN.equals("123456")) {
+            byte[] data = new byte[12];
+            System.arraycopy("123456".getBytes(), 0, data, 0, 6);
+            System.arraycopy(currentPIN.getBytes(), 0, data, 6, 6);
+
+            apdu = new CommandAPDU(CLA, INS_CHANGE_PIN, 0x00, 0x00, data);
+            sendAPDU(apdu);
+            
+            byte[] newKey = derive3DESKey(currentPIN);
+            apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, newKey);
+            sendAPDU(apdu);
+            
+            System.out.println("[JCSIM] ✅ PIN restored");
+        }
+
+        simulator.reset();
+        simulator.selectApplet(appletAID);
+        
+        apdu = new CommandAPDU(CLA, INS_INIT_CRYPTO, 0x00, 0x00, 1);
+        sendAPDU(apdu);
+        
+        byte[] keyToSet = derive3DESKey(currentPIN != null ? currentPIN : "123456");
+        apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, keyToSet);
+        sendAPDU(apdu);
+        
+        pinVerified = false;
+
+        System.out.println("[JCSIM] ✅ Data restore complete!");
     }
-    
-    private CardData loadCardDataFromFile(String fileName) {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
-            return (CardData) ois.readObject();
+
+    private void restoreInfo(String phone, String info) {
+        try {
+            byte[] phoneBytes = (phone != null) ? phone.getBytes("UTF-8") : new byte[0];
+            byte[] infoBytes = (info != null) ? info.getBytes("UTF-8") : new byte[0];
+
+            if (phoneBytes.length > 12) {
+                phoneBytes = Arrays.copyOf(phoneBytes, 12);
+            }
+            if (infoBytes.length > INFO_MAX_SIZE) {
+                infoBytes = Arrays.copyOf(infoBytes, INFO_MAX_SIZE);
+            }
+
+            byte[] data = new byte[1 + phoneBytes.length + infoBytes.length];
+            data[0] = (byte) phoneBytes.length;
+            System.arraycopy(phoneBytes, 0, data, 1, phoneBytes.length);
+            System.arraycopy(infoBytes, 0, data, 1 + phoneBytes.length, infoBytes.length);
+
+            CommandAPDU apdu = new CommandAPDU(CLA, INS_UPDATE_INFO, 0x00, 0x00, data);
+            sendAPDU(apdu);
         } catch (Exception e) {
-            return null;
+            System.out.println("[JCSIM] ⚠️ Restore info error: " + e.getMessage());
         }
     }
-    
-    private void applyCardData(CardData data) {
-        this.currentPIN = data.currentPIN;
-        this.pinTriesRemaining = data.pinTriesRemaining;
-        this.mustChangePIN = data.mustChangePIN;
-        this.cardRegistered = data.cardRegistered;
-        this.cardId = data.cardId;
-        this.recoveryPhone = data.recoveryPhone;
-        this.balance = data.balance;
-        this.encryptedInfo = data.encryptedInfo;
-        this.avatar = data.avatar;
-        this.masterKey = data.masterKey != null ? data.masterKey : new byte[16];
-        
-        // Reset session state
-        this.pinVerified = false;
-        this.tempGeneratedPIN = null;
-    }
-    
-    private void resetAllData() {
-        currentPIN = null;
-        tempGeneratedPIN = null;
-        pinTriesRemaining = PIN_TRY_LIMIT;
-        pinVerified = false;
-        mustChangePIN = true;
-        cardRegistered = false;
-        cardId = null;
-        recoveryPhone = null;
-        balance = 0;
-        encryptedInfo = null;
-        avatar = null;
-        masterKey = new byte[16];
-        currentCardFileName = null;
-    }
-    
-    private static class CardData implements Serializable {
-        private static final long serialVersionUID = 1L;
-        
-        String currentPIN;
-        int pinTriesRemaining;
-        boolean mustChangePIN;
-        boolean cardRegistered;
-        String cardId;
-        String recoveryPhone;
-        long balance;
-        String encryptedInfo;
-        byte[] avatar;
-        byte[] masterKey;
-    }
 
-    // ====================== CARD ID ======================
-    public void setCardId(String cardId) {
-        this.cardId = cardId;
-        if (currentCardFileName != null) {
-            saveCardData();
-        }
-    }
-    
-    public String getCardId() {
-        return cardId;
-    }
-
-    // ====================== 0x20: ĐĂNG KÝ THẺ MỚI ======================
-    public String registerNewCard() {
-        // Tạo card ID mới
-        String newCardId = "GYM" + System.currentTimeMillis() % 1000000;
-        
-        // Reset tất cả dữ liệu
-        resetAllData();
-        
-        // Sinh PIN ngẫu nhiên 6 số
-        Random r = new Random();
-        StringBuilder pin = new StringBuilder();
-        for (int i = 0; i < PIN_SIZE; i++) {
-            pin.append(r.nextInt(10));
-        }
-
-        // Sinh Master Key ngẫu nhiên
-        r.nextBytes(masterKey);
-
-        currentPIN = pin.toString();
-        tempGeneratedPIN = pin.toString();
-        cardRegistered = true;
-        mustChangePIN = true;
-        pinVerified = false;
-        pinTriesRemaining = PIN_TRY_LIMIT;
-        balance = 0;
-        cardId = newCardId;
-        
-        // Tạo file mới cho thẻ này
-        currentCardFileName = CARDS_FOLDER + File.separator + CARD_FILE_PREFIX + newCardId + CARD_FILE_EXT;
-
-        System.out.println("[CARD] ✅ Đăng ký thành công!");
-        System.out.println("[CARD] 🆔 Card ID: " + newCardId);
-        System.out.println("[CARD] 🔑 PIN mặc định: " + currentPIN);
-        System.out.println("[CARD] ⚠️  Bắt buộc đổi PIN lần đầu!");
-
-        // Lưu vào file
-        saveCardData();
-
-        return currentPIN;
-    }
-
-    // ====================== 0x21: LẤY PIN ĐÃ SINH ======================
-    public String getGeneratedPIN() {
-        if (tempGeneratedPIN == null) {
-            System.out.println("[CARD] ❌ Không có PIN tạm để lấy!");
-            return null;
-        }
-
-        String pin = tempGeneratedPIN;
-        tempGeneratedPIN = null;
-        System.out.println("[CARD] 🔑 PIN đã lấy: " + pin);
-        return pin;
-    }
-
-    // ====================== 0x10: XÁC THỰC PIN ======================
-    public boolean verifyPIN(String pin6) {
-        if (!cardRegistered) {
-            System.out.println("[CARD] ❌ Thẻ chưa đăng ký!");
-            return false;
-        }
-
-        if (pin6 == null || pin6.length() != PIN_SIZE) {
-            System.out.println("[CARD] ❌ PIN phải đúng 6 số!");
-            return false;
-        }
-
-        if (pinTriesRemaining <= 0) {
-            System.out.println("[CARD] 🔒 THẺ ĐÃ BỊ KHÓA! Cần unblock.");
-            return false;
-        }
-
-        if (currentPIN.equals(pin6)) {
-            pinVerified = true;
-            pinTriesRemaining = PIN_TRY_LIMIT;
-            System.out.println("[CARD] ✅ Xác thực PIN thành công!");
+    /**
+     * ✅ Restore avatar - Lưu ENCRYPTED data (plaintext đã decrypt từ state)
+     */
+    private void restoreAvatarEncrypted(byte[] plaintextAvatar) {
+        try {
+            // Encrypt toàn bộ trước
+            byte[] encrypted = encryptAvatar(plaintextAvatar);
             
-            if (mustChangePIN) {
-                System.out.println("[CARD] ⚠️  Cần đổi PIN lần đầu! (SW=9C10)");
+            System.out.println("[JCSIM] 📤 Uploading encrypted avatar (" + encrypted.length + " bytes)...");
+            
+            // Upload encrypted chunks
+            int offset = 0;
+            int chunkCount = 0;
+            
+            while (offset < encrypted.length) {
+                int chunkSize = Math.min(128, encrypted.length - offset);
+                byte[] chunk = new byte[chunkSize];
+                System.arraycopy(encrypted, offset, chunk, 0, chunkSize);
+
+                byte p1 = (byte) ((offset >> 8) & 0xFF);
+                byte p2 = (byte) (offset & 0xFF);
+
+                CommandAPDU apdu = new CommandAPDU(CLA, INS_UPLOAD_AVATAR, p1, p2, chunk);
+                ResponseAPDU resp = sendAPDU(apdu);
+                
+                if (resp == null || resp.getSW() != 0x9000) {
+                    System.out.println("[JCSIM] ❌ Chunk " + chunkCount + " failed");
+                    return;
+                }
+
+                offset += chunkSize;
+                chunkCount++;
             }
             
-            saveCardData();
-            return true;
-        } else {
-            pinTriesRemaining--;
-            pinVerified = false;
-            System.out.println("[CARD] ❌ PIN sai! Còn " + pinTriesRemaining + " lần thử.");
+            System.out.println("[JCSIM] ✅ Encrypted avatar uploaded: " + chunkCount + " chunks");
             
-            saveCardData();
-            return false;
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ⚠️ Restore avatar error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    public boolean isMustChangePIN() {
-        return mustChangePIN;
-    }
+    private void restoreBalance(long balanceVND) {
+        try {
+            long remaining = balanceVND;
+            while (remaining > 0) {
+                int units = (int) Math.min(remaining / BALANCE_UNIT, 255);
+                if (units <= 0) break;
 
-    public int getPinTriesRemaining() {
-        return pinTriesRemaining;
-    }
+                CommandAPDU apdu = new CommandAPDU(CLA, INS_TOPUP, (byte) units, 0x00, 2);
+                ResponseAPDU resp = sendAPDU(apdu);
 
-    // ====================== 0x11: ĐỔI PIN ======================
-    public boolean changePIN(String newPin6) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN cũ!");
-            return false;
+                if (resp == null || resp.getSW() != 0x9000) break;
+
+                remaining -= units * BALANCE_UNIT;
+            }
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ⚠️ Restore balance error: " + e.getMessage());
         }
-
-        if (newPin6 == null || newPin6.length() != PIN_SIZE || !newPin6.matches("\\d{6}")) {
-            System.out.println("[CARD] ❌ PIN mới phải đúng 6 chữ số!");
-            return false;
-        }
-
-        currentPIN = newPin6;
-        mustChangePIN = false;
-        System.out.println("[CARD] ✅ Đổi PIN thành công: " + currentPIN);
-        
-        saveCardData();
-        return true;
     }
 
-    // ====================== 0x12: UNBLOCK & SINH PIN MỚI ======================
-    public String unblockAndGenerateNewPIN(String phone) {
-        if (recoveryPhone == null || recoveryPhone.isEmpty()) {
-            System.out.println("[CARD] ❌ Chưa đăng ký SĐT khôi phục!");
+    // ====================== SEND APDU ======================
+    private ResponseAPDU sendAPDU(CommandAPDU apdu) {
+        if (!isConnected) return null;
+
+        try {
+            byte[] response = simulator.transmitCommand(apdu.getBytes());
+            ResponseAPDU resp = new ResponseAPDU(response);
+
+            System.out.println("[JCSIM] → " + bytesToHex(apdu.getBytes()));
+            System.out.println("[JCSIM] ← " + bytesToHex(response)
+                    + " (SW=" + String.format("%04X", resp.getSW()) + ")");
+
+            return resp;
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ❌ APDU error: " + e.getMessage());
             return null;
         }
-
-        if (!recoveryPhone.equals(phone)) {
-            System.out.println("[CARD] ❌ SĐT khôi phục không đúng!");
-            System.out.println("[CARD] Expected: " + recoveryPhone + ", Got: " + phone);
-            return null;
-        }
-
-        // Sinh PIN mới
-        Random r = new Random();
-        StringBuilder pin = new StringBuilder();
-        for (int i = 0; i < PIN_SIZE; i++) {
-            pin.append(r.nextInt(10));
-        }
-
-        currentPIN = pin.toString();
-        tempGeneratedPIN = pin.toString();
-        pinTriesRemaining = PIN_TRY_LIMIT;
-        mustChangePIN = true;
-        pinVerified = false;
-
-        System.out.println("[CARD] ✅ Unblock thành công!");
-        System.out.println("[CARD] 🔑 PIN mới: " + currentPIN);
-        
-        saveCardData();
-        return currentPIN;
     }
 
-    public void setRecoveryPhone(String phone) {
-        this.recoveryPhone = phone;
-        System.out.println("[CARD] 📱 Đã lưu SĐT khôi phục: " + phone);
-        if (currentCardFileName != null) {
-            saveCardData();
+    // ====================== PIN OPERATIONS ======================
+    public boolean verifyPIN(String pin6) {
+        if (pin6 == null || pin6.length() != PIN_SIZE) return false;
+        if (isCardBlocked) {
+            System.out.println("[JCSIM] ❌ Card is BLOCKED!");
+            return false;
         }
+
+        byte[] pinBytes = pin6.getBytes();
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_VERIFY_PIN, 0x00, 0x00, pinBytes);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp != null) {
+            if (resp.getSW() == 0x9000) {
+                pinVerified = true;
+                pinTriesRemaining = PIN_TRY_LIMIT;
+                
+                // Update PC crypto
+                updatePCCrypto(pin6);
+                
+                // Update card key
+                byte[] cardKey = derive3DESKey(pin6);
+                CommandAPDU keyApdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, cardKey);
+                sendAPDU(keyApdu);
+                
+                System.out.println("[JCSIM] ✅ PIN verified!");
+                return true;
+            } else if ((resp.getSW() & 0xFFF0) == 0x63C0) {
+                pinTriesRemaining = resp.getSW() & 0x000F;
+                pinVerified = false;
+
+                if (pinTriesRemaining <= 0) {
+                    isCardBlocked = true;
+                    System.out.println("[JCSIM] 🔒 CARD BLOCKED!");
+                }
+                saveCardState();
+            }
+        }
+
+        return false;
     }
+
+    public boolean changePIN(String oldPin, String newPin) {
+        if (oldPin == null || oldPin.length() != PIN_SIZE
+                || newPin == null || newPin.length() != PIN_SIZE) {
+            return false;
+        }
+
+        byte[] data = new byte[12];
+        System.arraycopy(oldPin.getBytes(), 0, data, 0, 6);
+        System.arraycopy(newPin.getBytes(), 0, data, 6, 6);
+
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_CHANGE_PIN, 0x00, 0x00, data);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp != null && resp.getSW() == 0x9000) {
+            currentPIN = newPin;
+            isFirstLogin = false;
+            
+            // Update PC crypto
+            updatePCCrypto(newPin);
+            
+            // Update card key
+            byte[] newKey = derive3DESKey(newPin);
+            CommandAPDU keyApdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, newKey);
+            sendAPDU(keyApdu);
+            
+            System.out.println("[JCSIM] ✅ PIN changed!");
+
+            if (verifyPIN(newPin)) {
+                System.out.println("[JCSIM] ✅ Auto-verified with new PIN!");
+            }
+
+            saveCardState();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean unblockCard(String phone) {
+        if (phone == null || phone.isEmpty()) return false;
+
+        if (recoveryPhone == null || !recoveryPhone.equals(phone)) {
+            System.out.println("[JCSIM] ❌ Phone not match!");
+            return false;
+        }
+
+        byte[] phoneBytes = phone.getBytes();
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_UNBLOCK_PIN, 0x00, 0x00, phoneBytes);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp != null && resp.getSW() == 0x9000) {
+            pinTriesRemaining = PIN_TRY_LIMIT;
+            isCardBlocked = false;
+            isFirstLogin = true;
+            currentPIN = "123456";
+            pinVerified = false;
+            
+            // Reset crypto
+            updatePCCrypto("123456");
+            
+            byte[] defaultKey = derive3DESKey("123456");
+            CommandAPDU keyApdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, defaultKey);
+            sendAPDU(keyApdu);
+            
+            System.out.println("[JCSIM] ✅ Card unblocked!");
+            saveCardState();
+            return true;
+        }
+
+        return false;
+    }
+
+    // ====================== INFO OPERATIONS ======================
     
-    public String getRecoveryPhone() {
-        return recoveryPhone;
-    }
-
-    // ====================== 0x30: CẬP NHẬT THÔNG TIN ======================
-    public boolean updateInfo(String info) {
-        if (!cardRegistered) {
-            System.out.println("[CARD] ❌ Thẻ chưa đăng ký!");
+    public boolean updateInfo(String phone, String info) {
+        if (!pinVerified) {
+            System.out.println("[JCSIM] ❌ PIN not verified");
             return false;
         }
 
-        if (info == null || info.length() > INFO_MAX_SIZE) {
-            System.out.println("[CARD] ❌ Thông tin không hợp lệ hoặc quá dài!");
-            return false;
+        try {
+            byte[] phoneBytes = (phone != null) ? phone.getBytes("UTF-8") : new byte[0];
+            byte[] infoBytes = (info != null) ? info.getBytes("UTF-8") : new byte[0];
+
+            if (phoneBytes.length > 12) {
+                phoneBytes = Arrays.copyOf(phoneBytes, 12);
+            }
+            if (infoBytes.length > INFO_MAX_SIZE) {
+                infoBytes = Arrays.copyOf(infoBytes, INFO_MAX_SIZE);
+            }
+
+            byte[] data = new byte[1 + phoneBytes.length + infoBytes.length];
+            data[0] = (byte) phoneBytes.length;
+            System.arraycopy(phoneBytes, 0, data, 1, phoneBytes.length);
+            System.arraycopy(infoBytes, 0, data, 1 + phoneBytes.length, infoBytes.length);
+
+            System.out.println("[JCSIM] 📤 Sending info (" + infoBytes.length + " bytes) to card for encryption...");
+            CommandAPDU apdu = new CommandAPDU(CLA, INS_UPDATE_INFO, 0x00, 0x00, data);
+            ResponseAPDU resp = sendAPDU(apdu);
+
+            if (resp != null && resp.getSW() == 0x9000) {
+                this.recoveryPhone = phone;
+                this.savedInfo = info;
+                saveCardState();
+                System.out.println("[JCSIM] ✅ Info encrypted and saved");
+                return true;
+            }
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ❌ Update info error: " + e.getMessage());
         }
 
-        encryptedInfo = info;
-        System.out.println("[CARD] ✅ Đã lưu thông tin (" + info.length() + " bytes)");
-        
-        if (currentCardFileName != null) {
-            saveCardData();
-        }
-        return true;
+        return false;
     }
 
-    // ====================== 0x31: LẤY THÔNG TIN ======================
     public String getInfo() {
         if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return null;
+            System.out.println("[JCSIM] ⚠️ PIN not verified, returning cached");
+            return savedInfo;
         }
 
-        if (encryptedInfo == null) {
-            System.out.println("[CARD] ❌ Chưa có thông tin!");
-            return null;
-        }
+        System.out.println("[JCSIM] 📥 Requesting decrypted info...");
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_GET_INFO, 0x00, 0x00, INFO_MAX_SIZE);
+        ResponseAPDU resp = sendAPDU(apdu);
 
-        return encryptedInfo;
-    }
-
-    // ====================== 0x32: SỬA THÔNG TIN ======================
-    public boolean editInfo(String info) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return false;
-        }
-
-        if (info == null || info.length() > INFO_MAX_SIZE) {
-            System.out.println("[CARD] ❌ Thông tin không hợp lệ!");
-            return false;
-        }
-
-        encryptedInfo = info;
-        System.out.println("[CARD] ✅ Đã sửa thông tin");
-        
-        saveCardData();
-        return true;
-    }
-
-    // ====================== 0x40: UPLOAD AVATAR ======================
-    public boolean uploadAvatar(byte[] avatarData) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return false;
-        }
-
-        if (avatarData == null || avatarData.length > AVATAR_MAX_SIZE) {
-            System.out.println("[CARD] ❌ Ảnh không hợp lệ hoặc quá lớn (max 1KB)!");
-            return false;
-        }
-
-        avatar = avatarData.clone();
-        System.out.println("[CARD] 🖼️ Đã lưu avatar (" + avatarData.length + " bytes)");
-        
-        saveCardData();
-        return true;
-    }
-
-    // ====================== 0x41: LẤY AVATAR ======================
-    public byte[] getAvatar() {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return null;
-        }
-
-        if (avatar == null) {
-            return null;
-        }
-
-        return avatar.clone();
-    }
-
-    // ====================== 0x50: NẠP TIỀN ======================
-    public boolean topup(int amount) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return false;
-        }
-
-        if (amount <= 0) {
-            System.out.println("[CARD] ❌ Số tiền không hợp lệ!");
-            return false;
-        }
-
-        if (balance + amount < balance) {
-            System.out.println("[CARD] ❌ Số dư vượt quá giới hạn!");
-            return false;
-        }
-
-        balance += amount;
-        System.out.println("[CARD] 💰 Nạp " + formatMoney(amount) + " → Số dư: " + formatMoney(balance));
-        
-        saveCardData();
-        return true;
-    }
-
-    // ====================== 0x51: LẤY SỐ DƯ ======================
-    public long getBalance() {
-        return balance;
-    }
-
-    // ====================== 0x52: CHECK-IN ======================
-    public boolean checkIn() {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return false;
-        }
-
-        System.out.println("[CARD] 🚪 CHECK-IN thành công! " + 
-            java.time.LocalDateTime.now().toString().replace("T", " "));
-        return true;
-    }
-
-    // ====================== 0x60: KÝ GIAO DỊCH ======================
-    public byte[] signTransaction(byte type, int amount) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return null;
-        }
-
-        String sigData = String.format("SIG|%02X|%d|%d|%d", 
-            type, amount, balance, System.currentTimeMillis());
-        
-        System.out.println("[CARD] ✍️ Đã ký giao dịch: type=" + type + ", amount=" + amount);
-        return sigData.getBytes();
-    }
-
-    // ====================== TRỪ TIỀN ======================
-    public boolean deductBalance(long amount) {
-        if (!pinVerified) {
-            System.out.println("[CARD] ❌ Chưa xác thực PIN!");
-            return false;
-        }
-
-        if (balance < amount) {
-            System.out.println("[CARD] ❌ Số dư không đủ! Cần " + formatMoney(amount) + 
-                ", hiện có " + formatMoney(balance));
-            return false;
-        }
-
-        balance -= amount;
-        System.out.println("[CARD] 💸 Trừ " + formatMoney(amount) + " → Còn: " + formatMoney(balance));
-        
-        saveCardData();
-        return true;
-    }
-
-    // ====================== LOGOUT (Rút thẻ) ======================
-    public void logout() {
-        System.out.println("[CARD] 📤 Rút thẻ: " + (cardId != null ? cardId : "N/A"));
-        resetAllData();
-    }
-
-    // ====================== FULL RESET ======================
-    public void fullReset() {
-        if (currentCardFileName != null) {
-            File file = new File(currentCardFileName);
-            if (file.exists()) {
-                file.delete();
-                System.out.println("[CARD] 🗑️ Đã xóa file thẻ: " + currentCardFileName);
+        if (resp != null && resp.getSW() == 0x9000) {
+            byte[] data = resp.getData();
+            if (data.length > 0) {
+                try {
+                    savedInfo = new String(data, "UTF-8").trim();
+                    System.out.println("[JCSIM] ✅ Received plaintext info");
+                    return savedInfo;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
-        
-        resetAllData();
-        System.out.println("[CARD] 🔄 Đã reset hoàn toàn thẻ!");
+
+        return savedInfo;
     }
+
+    // ====================== AVATAR OPERATIONS - PC ENCRYPTS ======================
     
-    public void reset() {
-        logout();
+    /**
+     * ✅ MÃ HÓA AVATAR PC-SIDE
+     */
+    private byte[] encryptAvatar(byte[] plaintext) throws Exception {
+        desCipher.init(Cipher.ENCRYPT_MODE, desKey, ivSpec);
+        return desCipher.doFinal(plaintext);
     }
 
-    // ====================== UTILITY ======================
-
-    public boolean isCardRegistered() {
-        return cardRegistered;
+    /**
+     * ✅ GIẢI MÃ AVATAR PC-SIDE
+     */
+    private byte[] decryptAvatar(byte[] encrypted) throws Exception {
+        desCipher.init(Cipher.DECRYPT_MODE, desKey, ivSpec);
+        return desCipher.doFinal(encrypted);
     }
 
-    public boolean isPinVerified() {
+    /**
+     * ✅ UPLOAD AVATAR - MÃ HÓA TOÀN BỘ TRƯỚC
+     */
+    public boolean uploadAvatar(byte[] avatarData) {
+        if (!pinVerified) {
+            System.out.println("[JCSIM] ❌ PIN not verified");
+            return false;
+        }
+        
+        if (avatarData == null || avatarData.length == 0) {
+            System.out.println("[JCSIM] ❌ Avatar data is null");
+            return false;
+        }
+        
+        if (avatarData.length > AVATAR_MAX_SIZE) {
+            System.out.println("[JCSIM] ❌ Avatar too large");
+            return false;
+        }
+
+        try {
+            System.out.println("[JCSIM] 🔐 Encrypting avatar on PC (" + avatarData.length + " bytes)...");
+            
+            // ✅ MÃ HÓA TOÀN BỘ
+            byte[] encrypted = encryptAvatar(avatarData);
+            
+            System.out.println("[JCSIM] ✅ Encrypted size: " + encrypted.length + " bytes");
+            System.out.println("[JCSIM] 📤 Uploading encrypted chunks...");
+            
+            // Upload chunks
+            int offset = 0;
+            int chunkCount = 0;
+            
+            while (offset < encrypted.length) {
+                int chunkSize = Math.min(128, encrypted.length - offset);
+                byte[] chunk = new byte[chunkSize];
+                System.arraycopy(encrypted, offset, chunk, 0, chunkSize);
+
+                byte p1 = (byte) ((offset >> 8) & 0xFF);
+                byte p2 = (byte) (offset & 0xFF);
+
+                CommandAPDU apdu = new CommandAPDU(CLA, INS_UPLOAD_AVATAR, p1, p2, chunk);
+                ResponseAPDU resp = sendAPDU(apdu);
+
+                if (resp == null || resp.getSW() != 0x9000) {
+                    System.out.println("[JCSIM] ❌ Chunk " + chunkCount + " failed");
+                    return false;
+                }
+
+                offset += chunkSize;
+                chunkCount++;
+            }
+
+            // Lưu plaintext vào state (để hiển thị)
+            savedAvatar = avatarData.clone();
+            saveCardState();
+            
+            System.out.println("[JCSIM] ✅ Avatar uploaded! Chunks: " + chunkCount);
+            return true;
+
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ❌ Upload error: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * ✅ GET AVATAR - TẢI VỀ VÀ GIẢI MÃ
+     */
+    public byte[] getAvatar() {
+        if (!pinVerified) {
+            System.out.println("[JCSIM] ⚠️ PIN not verified, returning cached");
+            return savedAvatar;
+        }
+
+        try {
+            System.out.println("[JCSIM] 📥 Downloading encrypted avatar...");
+            
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            int offset = 0;
+
+            while (offset < AVATAR_MAX_SIZE) {
+                byte p1 = (byte) ((offset >> 8) & 0xFF);
+                byte p2 = (byte) (offset & 0xFF);
+
+                CommandAPDU apdu = new CommandAPDU(CLA, INS_GET_AVATAR, p1, p2, 128);
+                ResponseAPDU resp = sendAPDU(apdu);
+
+                if (resp == null || resp.getSW() != 0x9000) {
+                    break;
+                }
+
+                byte[] chunk = resp.getData();
+                if (chunk.length == 0) {
+                    break;
+                }
+
+                baos.write(chunk);
+                offset += 128;
+
+                if (chunk.length < 128) {
+                    break;
+                }
+            }
+
+            byte[] encrypted = baos.toByteArray();
+            
+            if (encrypted.length > 0) {
+                System.out.println("[JCSIM] ✅ Downloaded " + encrypted.length + " bytes (encrypted)");
+                System.out.println("[JCSIM] 🔓 Decrypting on PC...");
+                
+                // ✅ GIẢI MÃ
+                byte[] plaintext = decryptAvatar(encrypted);
+                
+                savedAvatar = plaintext;
+                System.out.println("[JCSIM] ✅ Decrypted avatar: " + plaintext.length + " bytes");
+                return plaintext;
+            }
+            
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ❌ Get avatar error: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return savedAvatar;
+    }
+
+    // ====================== BALANCE OPERATIONS ======================
+    public long getBalance() {
+        if (!pinVerified) return savedBalance;
+
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_CHECK_BALANCE, 0x00, 0x00, 2);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp != null && resp.getSW() == 0x9000) {
+            byte[] data = resp.getData();
+            if (data.length == 2) {
+                int units = ((data[0] & 0xFF) << 8) | (data[1] & 0xFF);
+                savedBalance = (long) units * BALANCE_UNIT;
+                return savedBalance;
+            }
+        }
+        return savedBalance;
+    }
+
+    public boolean topup(long amountVND) {
+        if (!pinVerified || amountVND <= 0) return false;
+
+        int units = (int) (amountVND / BALANCE_UNIT);
+        if (units <= 0 || units > 255) return false;
+
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_TOPUP, (byte) units, 0x00, 2);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp != null && resp.getSW() == 0x9000) {
+            savedBalance = getBalance();
+            saveCardState();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean deductBalance(long amountVND) {
+        if (!pinVerified || amountVND <= 0) return false;
+
+        int units = (int) (amountVND / BALANCE_UNIT);
+        if (units <= 0 || units > 255) return false;
+
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_PAYMENT, (byte) units, 0x00, 2);
+        ResponseAPDU resp = sendAPDU(apdu);
+
+        if (resp != null && resp.getSW() == 0x9000) {
+            savedBalance = getBalance();
+            saveCardState();
+            return true;
+        }
+
+        return false;
+    }
+
+    // ====================== OTHER ======================
+    public boolean checkIn() {
         return pinVerified;
     }
 
-    private String formatMoney(long amount) {
-        return String.format("%,d VNĐ", amount);
+    public byte[] signTransaction(byte type, long amountVND) {
+        if (!pinVerified) return new byte[0];
+
+        try {
+            String txData = type + "|" + amountVND + "|" + System.currentTimeMillis();
+            byte[] data = txData.getBytes();
+
+            CommandAPDU apdu = new CommandAPDU(CLA, INS_HASH_SHA1, 0x00, 0x00, data, 20);
+            ResponseAPDU resp = sendAPDU(apdu);
+
+            if (resp != null && resp.getSW() == 0x9000) {
+                return resp.getData();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+
+        return new byte[0];
     }
 
-    // ====================== DEBUG ======================
+    // ====================== STATE ======================
+    public void saveCardState() {
+        try {
+            CardState state = new CardState();
+            state.cardId = cardId;
+            state.recoveryPhone = recoveryPhone;
+            state.currentPIN = currentPIN;
+            state.pinTriesRemaining = pinTriesRemaining;
+            state.isFirstLogin = isFirstLogin;
+            state.isCardBlocked = isCardBlocked;
+            state.savedInfo = savedInfo;
+            state.savedAvatar = savedAvatar;
+            state.savedBalance = savedBalance;
+
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(CARD_STATE_FILE))) {
+                oos.writeObject(state);
+            }
+            System.out.println("[JCSIM] 💾 State saved");
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ⚠️ Save error: " + e.getMessage());
+        }
+    }
+
+    private void loadCardState() {
+        try {
+            File file = new File(CARD_STATE_FILE);
+            if (!file.exists()) {
+                System.out.println("[JCSIM] ℹ️ No saved state");
+                return;
+            }
+
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                CardState state = (CardState) ois.readObject();
+                cardId = state.cardId;
+                recoveryPhone = state.recoveryPhone;
+                currentPIN = state.currentPIN;
+                pinTriesRemaining = state.pinTriesRemaining;
+                isFirstLogin = state.isFirstLogin;
+                isCardBlocked = state.isCardBlocked;
+                savedInfo = state.savedInfo;
+                savedAvatar = state.savedAvatar;
+                savedBalance = state.savedBalance;
+            }
+
+            System.out.println("[JCSIM] ✅ State loaded");
+        } catch (Exception e) {
+            System.out.println("[JCSIM] ⚠️ Load error: " + e.getMessage());
+        }
+    }
+
+    // ====================== GETTERS/SETTERS ======================
+    public void setCardId(String id) { this.cardId = id; }
+    public String getCardId() { return cardId; }
+    public void setRecoveryPhone(String phone) { this.recoveryPhone = phone; saveCardState(); }
+    public String getRecoveryPhone() { return recoveryPhone; }
+    public boolean isFirstLogin() { return isFirstLogin; }
+    public void setFirstLoginComplete() { isFirstLogin = false; saveCardState(); }
+    public int getPinTriesRemaining() { return pinTriesRemaining; }
+    public boolean isPinVerified() { return pinVerified; }
+    public boolean isCardBlocked() { return isCardBlocked; }
     
+    public void logout() {
+        saveCardState();
+        pinVerified = false;
+    }
+
+    public void reset() {
+        simulator.reset();
+        simulator.selectApplet(appletAID);
+        
+        CommandAPDU apdu = new CommandAPDU(CLA, INS_INIT_CRYPTO, 0x00, 0x00, 1);
+        sendAPDU(apdu);
+        
+        byte[] keyToSet = derive3DESKey(currentPIN != null ? currentPIN : "123456");
+        apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, keyToSet);
+        sendAPDU(apdu);
+        
+        pinVerified = false;
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString().trim();
+    }
+
     public void printStatus() {
-        System.out.println("\n╔═══════════════ TRẠNG THÁI THẺ ═══════════════╗");
-        System.out.println("║ Card File:       " + (currentCardFileName != null ? currentCardFileName : "Chưa chọn"));
-        System.out.println("║ Card ID:         " + (cardId != null ? cardId : "Chưa có"));
-        System.out.println("║ Đã đăng ký:      " + (cardRegistered ? "✅ Có" : "❌ Chưa"));
-        System.out.println("║ PIN hiện tại:    " + (currentPIN != null ? currentPIN : "Chưa có"));
-        System.out.println("║ PIN verified:    " + (pinVerified ? "✅ Có" : "❌ Chưa"));
-        System.out.println("║ Phải đổi PIN:    " + (mustChangePIN ? "⚠️ Có" : "✅ Không"));
-        System.out.println("║ Số lần thử PIN:  " + pinTriesRemaining + "/" + PIN_TRY_LIMIT);
-        System.out.println("║ Số dư:           " + formatMoney(balance));
-        System.out.println("║ Có thông tin:    " + (encryptedInfo != null ? "✅ Có" : "❌ Chưa"));
-        System.out.println("║ Có avatar:       " + (avatar != null ? "✅ Có" : "❌ Chưa"));
-        System.out.println("║ SĐT khôi phục:   " + (recoveryPhone != null ? recoveryPhone : "Chưa đăng ký"));
-        System.out.println("╚══════════════════════════════════════════════╝\n");
+        System.out.println("\n╔═══════════════ CARD STATUS ═══════════════╗");
+        System.out.println("║ Card ID:      " + cardId);
+        System.out.println("║ Phone:        " + (recoveryPhone != null ? recoveryPhone : "Not set"));
+        System.out.println("║ PIN verified: " + (pinVerified ? "✅" : "❌"));
+        System.out.println("║ Tries left:   " + pinTriesRemaining);
+        System.out.println("║ First login:  " + (isFirstLogin ? "⚠️ Yes" : "No"));
+        System.out.println("║ Blocked:      " + (isCardBlocked ? "🔒 Yes" : "No"));
+        System.out.println("║ Balance:      " + savedBalance + " VNĐ");
+        System.out.println("║ Encryption:   ✅ PC-side 3DES");
+        System.out.println("╚════════════════════════════════════════════╝\n");
+    }
+
+    private static class CardState implements Serializable {
+        private static final long serialVersionUID = 6L;
+        String cardId;
+        String recoveryPhone;
+        String currentPIN;
+        int pinTriesRemaining;
+        boolean isFirstLogin;
+        boolean isCardBlocked;
+        String savedInfo;
+        byte[] savedAvatar;
+        long savedBalance;
     }
 }

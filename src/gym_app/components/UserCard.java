@@ -86,16 +86,31 @@ public class UserCard extends JPanel {
         lblAvatar.setIcon(new ImageIcon(img));
     }
 
-    public void setAvatar(byte[] data) {
-        if (data != null && data.length > 0) {
+public void setAvatar(byte[] data) {
+    if (data != null && data.length > 0) {
+        try {
             this.avatarData = data;
+            
+            System.out.println("[UserCard] 🖼️ Setting avatar: " + 
+                String.format("%.1f KB", data.length / 1024.0));
+            
+            // ✅ data ĐÃ LÀ PLAINTEXT (đã giải mã từ SmartCardService)
             ImageIcon icon = new ImageIcon(data);
             Image scaled = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
             lblAvatar.setIcon(new ImageIcon(scaled));
-        } else {
+            
+            System.out.println("[UserCard] ✅ Avatar displayed successfully");
+        } catch (Exception e) {
+            System.out.println("[UserCard] ❌ Error displaying avatar: " + e.getMessage());
+            e.printStackTrace();
             setDefaultAvatar();
         }
+    } else {
+        System.out.println("[UserCard] ℹ️ No avatar data, using default");
+        setDefaultAvatar();
     }
+}
+
 
     public void setUserInfo(String cardId, String name, String phone) {
         lblName.setText(name != null ? name : "Chưa có tên");
@@ -103,10 +118,13 @@ public class UserCard extends JPanel {
         lblPhone.setText("📱 " + hidePhone(phone));
     }
 
-    public void setBalance(long balance) {
+   public void setBalance(long balance) {
+    if (balance >= 0) {
         lblBalance.setText("💰 " + String.format("%,d VNĐ", balance));
+    } else {
+        lblBalance.setText("💰 --- VNĐ");
     }
-
+}
     public void setStatus(String status) {
         lblStatus.setText(status);
     }

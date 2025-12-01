@@ -5,15 +5,20 @@
         <group>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/CheckinPanel.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/components/GymButton.java</file>
+            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/SecurityUtils.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/BuyPackagePanel.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/PackageListPanel.java</file>
-            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/RegisterPanel.java</file>
+            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/MainFrame.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/UnblockPinPanel.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/SmartCardService.java</file>
+            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/README.md</file>
+            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/Member.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/TopupPanel.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/HistoryPanel.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/DashboardPanel.java</file>
+            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/GymApp.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/components/UserCard.java</file>
+            <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/DatabaseService.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/components/SideMenu.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/ChangePinPanel.java</file>
             <file>file:/C:/Users/lenhh/OneDrive/Tài%20liệu/NetBeansProjects/Smartcard/src/gym_app/panels/LoginPanel.java</file>

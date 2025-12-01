@@ -448,29 +448,62 @@ public class DashboardPanel extends JPanel {
 
     // ==================== PUBLIC METHODS ====================
 
-    public void setUserInfo(String cardId, String name, String phone) {
+  public void setUserInfo(String cardId, String name, String phone) {
     lblWelcome.setText("👋 Xin chào, " + name + "!");
     userCard.setUserInfo(cardId, name, phone);
-    userCard.setBalance(mainFrame.getCardService().getBalance());
     
-    // *** THÊM: Load avatar từ thẻ ***
-    byte[] avatar = mainFrame.getCardService().getAvatar();
-    if (avatar != null && avatar.length > 0) {
-        userCard.setAvatar(avatar);
+    // *** CHỈ GỌI SAU KHI LOGIN THÀNH CÔNG ***
+    if (mainFrame.getCardService().isPinVerified()) {
+        userCard.setBalance(mainFrame.getCardService().getBalance());
+        loadAvatarFromCard();
+    } else {
+        System.out.println("[Dashboard] ⚠️ PIN not verified, skipping data load");
     }
 }
 
-    public void refreshData() {
+  public void refreshData() {
+    // *** KIỂM TRA ĐÃ LOGIN CHƯA ***
+    if (!mainFrame.getCardService().isPinVerified()) {
+        System.out.println("[Dashboard] ⚠️ Cannot refresh - not logged in");
+        return;
+    }
+    
     // Cập nhật số dư
     userCard.setBalance(mainFrame.getCardService().getBalance());
     
-    // *** THÊM: Load avatar từ thẻ ***
-    byte[] avatar = mainFrame.getCardService().getAvatar();
-    if (avatar != null && avatar.length > 0) {
-        userCard.setAvatar(avatar);
-    }
+    // Load avatar từ thẻ
+    loadAvatarFromCard();
     
     // Reload nội dung dashboard
     loadDashboardContent();
+}
+private void loadAvatarFromCard() {
+    // *** KIỂM TRA ĐÃ LOGIN CHƯA ***
+    if (!mainFrame.getCardService().isPinVerified()) {
+        System.out.println("[Dashboard] ⚠️ Cannot load avatar - not logged in");
+        return;
+    }
+    
+    try {
+        System.out.println("[Dashboard] 📥 Loading avatar from card...");
+        
+        // ✅ getAvatar() ĐÃ TỰ ĐỘNG GIẢI MÃ (trong SmartCardService)
+        byte[] decryptedAvatar = mainFrame.getCardService().getAvatar();
+        
+        if (decryptedAvatar != null && decryptedAvatar.length > 0) {
+            System.out.println("[Dashboard] ✅ Received DECRYPTED avatar: " + 
+                String.format("%.1f KB", decryptedAvatar.length / 1024.0));
+            
+            // ✅ Hiển thị plaintext image
+            userCard.setAvatar(decryptedAvatar);
+        } else {
+            System.out.println("[Dashboard] ℹ️ No avatar on card");
+            userCard.setAvatar(null); // Set default avatar
+        }
+    } catch (Exception e) {
+        System.out.println("[Dashboard] ❌ Error loading avatar: " + e.getMessage());
+        e.printStackTrace();
+        userCard.setAvatar(null);
+    }
 }
 }

@@ -14,9 +14,8 @@ public class MainFrame extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainContainer;
 
-    // Screen names
+    // Screen names - BỎ SCREEN_REGISTER
     public static final String SCREEN_LOGIN = "LOGIN";
-    public static final String SCREEN_REGISTER = "REGISTER";
     public static final String SCREEN_DASHBOARD = "DASHBOARD";
     public static final String SCREEN_TOPUP = "TOPUP";
     public static final String SCREEN_PACKAGES = "PACKAGES";
@@ -32,9 +31,8 @@ public class MainFrame extends JFrame {
     private String currentName;
     private String currentPhone;
 
-    // Panels
+    // Panels - BỎ registerPanel
     private LoginPanel loginPanel;
-    private RegisterPanel registerPanel;
     private DashboardPanel dashboardPanel;
     private HistoryPanel historyPanel;
     private PackageListPanel packageListPanel;
@@ -68,12 +66,9 @@ public class MainFrame extends JFrame {
     }
 
     private void initPanels() {
-        // Auth panels
+        // Auth panels - BỎ RegisterPanel
         loginPanel = new LoginPanel(this);
         mainContainer.add(loginPanel, SCREEN_LOGIN);
-        
-        registerPanel = new RegisterPanel(this);
-        mainContainer.add(registerPanel, SCREEN_REGISTER);
         
         unblockPinPanel = new UnblockPinPanel(this);
         mainContainer.add(unblockPinPanel, SCREEN_UNBLOCK);
@@ -110,16 +105,14 @@ public class MainFrame extends JFrame {
     public void showScreen(String screenName) {
         cardLayout.show(mainContainer, screenName);
 
-        // Refresh data khi chuyển màn hình
         switch (screenName) {
             case SCREEN_LOGIN:
                 loginPanel.onShow();
                 break;
-            case SCREEN_REGISTER:
-                registerPanel.onShow();
-                break;
             case SCREEN_DASHBOARD:
-                dashboardPanel.refreshData();
+                if (cardService.isPinVerified()) {
+                    dashboardPanel.refreshData();
+                }
                 break;
             case SCREEN_HISTORY:
                 historyPanel.loadHistory();
@@ -147,41 +140,37 @@ public class MainFrame extends JFrame {
 
     /**
      * Được gọi từ LoginPanel khi cần đổi PIN lần đầu
-     * Truyền thông tin user sang ChangePinPanel để sau khi đổi PIN xong sẽ login
      */
-    public void setPendingLoginForChangePin(String cardId, String name, String phone) {
-        changePinPanel.setPendingLogin(cardId, name, phone);
+    public void showChangePinFirstTime(String cardId, String name, String phone) {
+        changePinPanel.setFirstTimeMode(cardId, name, phone);
+        showScreen(SCREEN_CHANGE_PIN);
     }
 
     /**
-     * Đăng nhập thành công - lưu thông tin user và chuyển đến Dashboard
+     * Đăng nhập thành công
      */
     public void onLoginSuccess(String cardId, String name, String phone) {
         this.currentCardId = cardId;
         this.currentName = name;
         this.currentPhone = phone;
         
-        // Lưu cardId vào service
         cardService.setCardId(cardId);
         
-        System.out.println("[MainFrame] Login success: " + cardId + ", " + name + ", " + phone);
+        System.out.println("[MainFrame] Login success: " + cardId + ", " + name);
         
         dashboardPanel.setUserInfo(cardId, name, phone);
         showScreen(SCREEN_DASHBOARD);
     }
 
     /**
-     * Đăng xuất - CHỈ RESET TRẠNG THÁI XÁC THỰC
+     * Đăng xuất (rút thẻ)
      */
     public void logout() {
         currentCardId = null;
         currentName = null;
         currentPhone = null;
         
-        // Chỉ logout, không reset hoàn toàn thẻ
         cardService.logout();
-        
-        // Reset ChangePinPanel về trạng thái bình thường
         changePinPanel.setNormalMode();
         
         showScreen(SCREEN_LOGIN);
