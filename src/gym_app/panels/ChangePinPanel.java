@@ -9,6 +9,7 @@ import java.awt.*;
 
 /**
  * Màn hình đổi PIN
+ * ✅ Fix: Hiện nút "Quay lại đăng nhập" sau khi đổi PIN thành công
  */
 public class ChangePinPanel extends JPanel {
 
@@ -21,6 +22,7 @@ public class ChangePinPanel extends JPanel {
     private JProgressBar strengthBar;
     private JLabel lblTitle;
     private JLabel lblSubtitle;
+    private JPanel buttonPanel; // ✅ THÊM
     
     // Mode: first time hoặc normal
     private boolean isFirstTimeMode = false;
@@ -55,7 +57,8 @@ public class ChangePinPanel extends JPanel {
         JPanel formPanel = createFormPanel();
         JPanel tipsPanel = createTipsPanel();
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        // ✅ SỬA: Bỏ "JPanel" ở đầu
+        buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         buttonPanel.setBackground(new Color(30, 30, 45));
         buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -130,7 +133,7 @@ public class ChangePinPanel extends JPanel {
         strengthPanel.setMaximumSize(new Dimension(300, 25));
         strengthPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        lblStrength = new JLabel("Độ m��nh: ---");
+        lblStrength = new JLabel("Độ mạnh: ---");
         lblStrength.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblStrength.setForeground(Color.GRAY);
 
@@ -245,12 +248,10 @@ public class ChangePinPanel extends JPanel {
 
         int score = 50;
 
-        // Weak patterns
         if (pin.equals("123456") || pin.equals("654321")) score -= 30;
         if (pin.equals("000000") || pin.equals("111111") || pin.equals("222222")) score -= 40;
         if (pin.equals("888888") || pin.equals("666666")) score -= 30;
 
-        // All same
         boolean allSame = true;
         for (int i = 1; i < pin.length(); i++) {
             if (pin.charAt(i) != pin.charAt(0)) {
@@ -260,7 +261,6 @@ public class ChangePinPanel extends JPanel {
         }
         if (allSame) score -= 30;
 
-        // Unique chars
         java.util.Set<Character> unique = new java.util.HashSet<>();
         for (char c : pin.toCharArray()) unique.add(c);
         score += unique.size() * 8;
@@ -273,7 +273,6 @@ public class ChangePinPanel extends JPanel {
         String newPin = new String(txtNewPin.getPassword());
         String confirmPin = new String(txtConfirmPin.getPassword());
 
-        // Validate
         if (!currentPin.matches("\\d{6}")) {
             showError("PIN hiện tại phải đúng 6 số!");
             txtCurrentPin.requestFocus();
@@ -298,16 +297,13 @@ public class ChangePinPanel extends JPanel {
             return;
         }
 
-        // Kiểm tra PIN yếu
         if (newPin.equals("123456") || newPin.equals("000000")) {
             showError("PIN này quá yếu! Vui lòng chọn PIN khác.");
             txtNewPin.requestFocus();
             return;
         }
 
-        // Đổi PIN
         if (mainFrame.getCardService().changePIN(currentPin, newPin)) {
-            // Đánh dấu đã đổi PIN lần đầu
             mainFrame.getCardService().setFirstLoginComplete();
             
             JOptionPane.showMessageDialog(this,
@@ -323,11 +319,11 @@ public class ChangePinPanel extends JPanel {
             clearForm();
             
             if (isFirstTimeMode) {
-                // Hoàn tất đăng nhập
                 mainFrame.onLoginSuccess(pendingCardId, pendingName, pendingPhone);
                 setNormalMode();
             } else {
-                mainFrame.showScreen(MainFrame.SCREEN_DASHBOARD);
+                // ✅ THÊM: Hiện nút quay lại đăng nhập
+                showBackToLoginButton();
             }
 
         } else {
@@ -335,6 +331,25 @@ public class ChangePinPanel extends JPanel {
             txtCurrentPin.setText("");
             txtCurrentPin.requestFocus();
         }
+    }
+
+    /**
+     * ✅ THÊM: Hiện nút "Quay lại đăng nhập"
+     */
+    private void showBackToLoginButton() {
+        buttonPanel.removeAll();
+        
+        GymButton btnLogin = GymButton.success("🔑 Quay lại đăng nhập");
+        btnLogin.setPreferredSize(new Dimension(250, 50));
+        btnLogin.addActionListener(e -> {
+            clearForm();
+            mainFrame.logout();
+            mainFrame.showScreen(MainFrame.SCREEN_LOGIN);
+        });
+        
+        buttonPanel.add(btnLogin);
+        buttonPanel.revalidate();
+        buttonPanel.repaint();
     }
 
     private void clearForm() {
@@ -350,9 +365,6 @@ public class ChangePinPanel extends JPanel {
         JOptionPane.showMessageDialog(this, msg, "Lỗi", JOptionPane.ERROR_MESSAGE);
     }
     
-    /**
-     * Set mode đổi PIN lần đầu
-     */
     public void setFirstTimeMode(String cardId, String name, String phone) {
         this.isFirstTimeMode = true;
         this.pendingCardId = cardId;
@@ -363,9 +375,6 @@ public class ChangePinPanel extends JPanel {
         lblSubtitle.setText("<html><center>Bắt buộc đổi PIN để bảo mật tài khoản.<br>PIN mặc định: <b>123456</b></center></html>");
     }
     
-    /**
-     * Reset về mode bình thường
-     */
     public void setNormalMode() {
         this.isFirstTimeMode = false;
         this.pendingCardId = null;
@@ -379,5 +388,28 @@ public class ChangePinPanel extends JPanel {
     public void onShow() {
         clearForm();
         txtCurrentPin.requestFocus();
+        
+        // ✅ THÊM: Reset button panel
+        buttonPanel.removeAll();
+        
+        GymButton btnChange = GymButton.success("✓ ĐỔI PIN");
+        btnChange.setPreferredSize(new Dimension(200, 50));
+        btnChange.addActionListener(e -> doChangePin());
+
+        GymButton btnBack = new GymButton("← Quay lại", new Color(100, 100, 120));
+        btnBack.setPreferredSize(new Dimension(150, 50));
+        btnBack.addActionListener(e -> {
+            clearForm();
+            if (isFirstTimeMode) {
+                mainFrame.showScreen(MainFrame.SCREEN_LOGIN);
+            } else {
+                mainFrame.showScreen(MainFrame.SCREEN_DASHBOARD);
+            }
+        });
+
+        buttonPanel.add(btnChange);
+        buttonPanel.add(btnBack);
+        buttonPanel.revalidate();
+        buttonPanel.repaint();
     }
 }

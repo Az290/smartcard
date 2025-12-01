@@ -576,8 +576,8 @@ public class ProfileEditPanel extends JPanel {
         JOptionPane.showMessageDialog(this,
             "<html><center>" +
             "<h2>✅ LƯU THÀNH CÔNG!</h2>" +
-            "<p>✅ Thẻ: Info encrypted (3DES)</p>" +
-            (newAvatarData != null ? "<p>✅ Thẻ: Avatar encrypted (3DES PC-side)</p>" : "") +
+            "<p>✅ Thẻ: Info encrypted (AES)</p>" +
+            (newAvatarData != null ? "<p>✅ Thẻ: Avatar encrypted (AES PC-side)</p>" : "") +
             "<p>✅ Database: Encrypted (AES)</p>" +
             "<br><p style='color:#f1c40f'>SĐT <b>" + phone + "</b> dùng để mở khóa thẻ</p>" +
             "</center></html>",

@@ -461,8 +461,7 @@ public class DashboardPanel extends JPanel {
     }
 }
 
-  public void refreshData() {
-    // *** KIỂM TRA ĐÃ LOGIN CHƯA ***
+public void refreshData() {
     if (!mainFrame.getCardService().isPinVerified()) {
         System.out.println("[Dashboard] ⚠️ Cannot refresh - not logged in");
         return;
@@ -471,11 +470,70 @@ public class DashboardPanel extends JPanel {
     // Cập nhật số dư
     userCard.setBalance(mainFrame.getCardService().getBalance());
     
-    // Load avatar từ thẻ
+    // Load avatar
     loadAvatarFromCard();
+    
+    // ✅ THÊM: Cập nhật trạng thái check-in
+    updateCheckinStatus();
     
     // Reload nội dung dashboard
     loadDashboardContent();
+}
+private void updateCheckinStatus() {
+    String cardId = mainFrame.getCurrentCardId();
+    if (cardId == null) {
+        userCard.setStatus("⏳ Chưa check-in");
+        return;
+    }
+
+    java.sql.Connection conn = mainFrame.getDbService().getConnection();
+    if (conn == null) {
+        userCard.setStatus("⏳ Chưa check-in");
+        return;
+    }
+
+    try {
+        String sql = "SELECT MAX(c.checkin_time) as last_time, " +
+                     "SUM(CASE WHEN HOUR(c.checkin_time) >= 5 AND HOUR(c.checkin_time) < 14 THEN 1 ELSE 0 END) as morning, " +
+                     "SUM(CASE WHEN HOUR(c.checkin_time) >= 14 THEN 1 ELSE 0 END) as afternoon " +
+                     "FROM checkins c " +
+                     "JOIN members m ON c.member_id = m.id " +
+                     "WHERE m.card_id = ? AND DATE(c.checkin_time) = CURDATE()";
+        
+        java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setString(1, cardId);
+        java.sql.ResultSet rs = ps.executeQuery();
+        
+        if (rs.next()) {
+            int morning = rs.getInt("morning");
+            int afternoon = rs.getInt("afternoon");
+            java.sql.Timestamp lastTime = rs.getTimestamp("last_time");
+            
+            if (morning + afternoon == 0) {
+                userCard.setStatus("⏳ Chưa check-in");
+            } else if (morning > 0 && afternoon > 0) {
+                userCard.setStatus("✅ Đã check-in 2 buổi");
+            } else if (morning > 0) {
+                String timeStr = lastTime.toLocalDateTime().format(
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+                );
+                userCard.setStatus("✅ Đã check-in sáng (" + timeStr + ")");
+            } else {
+                String timeStr = lastTime.toLocalDateTime().format(
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+                );
+                userCard.setStatus("✅ Đã check-in chiều (" + timeStr + ")");
+            }
+        } else {
+            userCard.setStatus("⏳ Chưa check-in");
+        }
+        
+        rs.close();
+        ps.close();
+    } catch (java.sql.SQLException e) {
+        e.printStackTrace();
+        userCard.setStatus("⏳ Chưa check-in");
+    }
 }
 private void loadAvatarFromCard() {
     // *** KIỂM TRA ĐÃ LOGIN CHƯA ***

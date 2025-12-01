@@ -12,9 +12,9 @@ import java.security.MessageDigest;
 import java.util.*;
 
 /**
- * SmartCardService - FULL ENCRYPTION
- * ✅ Avatar: PC mã hóa → Card lưu encrypted → PC giải mã khi get
- * ✅ Info: Card mã hóa (vì nhỏ, không chunking)
+ * SmartCardService - FULL ENCRYPTION với AES
+ * ✅ Avatar: PC mã hóa AES → Card lưu encrypted → PC giải mã khi get
+ * ✅ Info: Card mã hóa AES (vì nhỏ, không chunking)
  */
 public class SmartCardService {
 
@@ -28,6 +28,7 @@ public class SmartCardService {
     private static final int AVATAR_MAX_SIZE = 10240;
     private static final int INFO_MAX_SIZE = 1024;
     private static final int BALANCE_UNIT = 10000;
+    private static final int AES_BLOCK_SIZE = 16;  // AES block size
 
     private static final String CARD_STATE_FILE = "gym_card.state";
 
@@ -53,10 +54,10 @@ public class SmartCardService {
     private static final byte INS_HASH_SHA1 = (byte) 0x81;
     private static final byte INS_SET_AES_KEY = (byte) 0x72;
 
-    // ====================== CRYPTO - PC SIDE ======================
-    private SecretKeySpec desKey;
+    // ====================== CRYPTO - PC SIDE (AES) ======================
+    private SecretKeySpec aesKey;      // Đổi từ desKey
     private IvParameterSpec ivSpec;
-    private Cipher desCipher;
+    private Cipher aesCipher;          // Đổi từ desCipher
 
     // ====================== JCARDSIM ======================
     private Simulator simulator;
@@ -80,9 +81,9 @@ public class SmartCardService {
     public SmartCardService() {
         System.out.println("╔════════════════════════════════════════════════════════╗");
         System.out.println("║  SMARTCARD SERVICE - JCARDSIM MODE                     ║");
-        System.out.println("║  ✅ FULL ENCRYPTION: PC encrypts Avatar                ║");
-        System.out.println("║  ✅ FULL ENCRYPTION: Card encrypts Info                ║");
-        System.out.println("║  📦 Max Avatar: 10KB | Max Info: 256 bytes             ║");
+        System.out.println("║  ✅ FULL ENCRYPTION: PC encrypts Avatar (AES-128)      ║");
+        System.out.println("║  ✅ FULL ENCRYPTION: Card encrypts Info (AES-128)      ║");
+        System.out.println("║  📦 Max Avatar: 10KB | Max Info: 1024 bytes            ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
 
         initPCCrypto("123456");
@@ -92,25 +93,27 @@ public class SmartCardService {
     }
 
     /**
-     * ✅ Khởi tạo crypto PC-side (3DES)
+     * ✅ Khởi tạo crypto PC-side (AES-128)
      */
     private void initPCCrypto(String pin) {
         try {
-            // Derive key từ PIN
+            // Derive key từ PIN bằng SHA-256
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(pin.getBytes("UTF-8"));
-            byte[] keyBytes = Arrays.copyOf(hash, 24); // 3DES key 24 bytes
             
-            desKey = new SecretKeySpec(keyBytes, "DESede");
+            // AES-128 key = 16 bytes đầu của hash
+            byte[] keyBytes = Arrays.copyOf(hash, 16);
+            aesKey = new SecretKeySpec(keyBytes, "AES");
             
-            // IV cố định (hoặc derive từ PIN)
-            byte[] ivBytes = new byte[8];
-            System.arraycopy(hash, 0, ivBytes, 0, 8);
+            // IV 16 bytes (lấy 16 bytes tiếp theo của hash)
+            byte[] ivBytes = new byte[16];
+            System.arraycopy(hash, 16, ivBytes, 0, 16);
             ivSpec = new IvParameterSpec(ivBytes);
             
-            desCipher = Cipher.getInstance("DESede/CBC/PKCS5Padding");
+            // AES/CBC/PKCS5Padding
+            aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             
-            System.out.println("[Crypto] ✅ PC-side 3DES initialized");
+            System.out.println("[Crypto] ✅ PC-side AES-128 initialized");
         } catch (Exception e) {
             System.out.println("[Crypto] ❌ Init failed: " + e.getMessage());
             e.printStackTrace();
@@ -122,6 +125,25 @@ public class SmartCardService {
      */
     private void updatePCCrypto(String newPin) {
         initPCCrypto(newPin);
+    }
+
+    /**
+     * ✅ Derive AES key để gửi cho card (16 bytes)
+     */
+    private byte[] deriveAESKey(String pin) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(pin.getBytes("UTF-8"));
+            return Arrays.copyOf(hash, 16);  // AES-128 = 16 bytes
+        } catch (Exception e) {
+            // Fallback
+            byte[] key = new byte[16];
+            byte[] pinBytes = pin.getBytes();
+            for (int i = 0; i < 16; i++) {
+                key[i] = pinBytes[i % pinBytes.length];
+            }
+            return key;
+        }
     }
 
     private void initSimulator() {
@@ -142,32 +164,17 @@ public class SmartCardService {
                 CommandAPDU apdu = new CommandAPDU(CLA, INS_INIT_CRYPTO, 0x00, 0x00, 1);
                 sendAPDU(apdu);
 
-                // Set 3DES key on card
-                byte[] cardKey = derive3DESKey("123456");
+                // Set AES key on card
+                byte[] cardKey = deriveAESKey("123456");
                 apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, cardKey);
                 ResponseAPDU resp = sendAPDU(apdu);
                 if (resp != null && resp.getSW() == 0x9000) {
-                    System.out.println("[JCSIM] ✅ Card 3DES key initialized");
+                    System.out.println("[JCSIM] ✅ Card AES key initialized");
                 }
             }
         } catch (Exception e) {
             System.out.println("[JCSIM] ❌ Init error: " + e.getMessage());
             e.printStackTrace();
-        }
-    }
-
-    private byte[] derive3DESKey(String pin) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(pin.getBytes("UTF-8"));
-            return Arrays.copyOf(hash, 24);
-        } catch (Exception e) {
-            byte[] key = new byte[24];
-            byte[] pinBytes = pin.getBytes();
-            for (int i = 0; i < 24; i++) {
-                key[i] = pinBytes[i % pinBytes.length];
-            }
-            return key;
         }
     }
 
@@ -214,7 +221,8 @@ public class SmartCardService {
             apdu = new CommandAPDU(CLA, INS_CHANGE_PIN, 0x00, 0x00, data);
             sendAPDU(apdu);
             
-            byte[] newKey = derive3DESKey(currentPIN);
+            // Update card key với PIN mới
+            byte[] newKey = deriveAESKey(currentPIN);
             apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, newKey);
             sendAPDU(apdu);
             
@@ -227,7 +235,7 @@ public class SmartCardService {
         apdu = new CommandAPDU(CLA, INS_INIT_CRYPTO, 0x00, 0x00, 1);
         sendAPDU(apdu);
         
-        byte[] keyToSet = derive3DESKey(currentPIN != null ? currentPIN : "123456");
+        byte[] keyToSet = deriveAESKey(currentPIN != null ? currentPIN : "123456");
         apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, keyToSet);
         sendAPDU(apdu);
         
@@ -265,7 +273,7 @@ public class SmartCardService {
      */
     private void restoreAvatarEncrypted(byte[] plaintextAvatar) {
         try {
-            // Encrypt toàn bộ trước
+            // Encrypt toàn bộ trước với AES
             byte[] encrypted = encryptAvatar(plaintextAvatar);
             
             System.out.println("[JCSIM] 📤 Uploading encrypted avatar (" + encrypted.length + " bytes)...");
@@ -357,11 +365,11 @@ public class SmartCardService {
                 pinVerified = true;
                 pinTriesRemaining = PIN_TRY_LIMIT;
                 
-                // Update PC crypto
+                // Update PC crypto với AES
                 updatePCCrypto(pin6);
                 
-                // Update card key
-                byte[] cardKey = derive3DESKey(pin6);
+                // Update card AES key
+                byte[] cardKey = deriveAESKey(pin6);
                 CommandAPDU keyApdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, cardKey);
                 sendAPDU(keyApdu);
                 
@@ -399,11 +407,11 @@ public class SmartCardService {
             currentPIN = newPin;
             isFirstLogin = false;
             
-            // Update PC crypto
+            // Update PC crypto với AES
             updatePCCrypto(newPin);
             
-            // Update card key
-            byte[] newKey = derive3DESKey(newPin);
+            // Update card AES key
+            byte[] newKey = deriveAESKey(newPin);
             CommandAPDU keyApdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, newKey);
             sendAPDU(keyApdu);
             
@@ -439,10 +447,10 @@ public class SmartCardService {
             currentPIN = "123456";
             pinVerified = false;
             
-            // Reset crypto
+            // Reset crypto với default PIN
             updatePCCrypto("123456");
             
-            byte[] defaultKey = derive3DESKey("123456");
+            byte[] defaultKey = deriveAESKey("123456");
             CommandAPDU keyApdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, defaultKey);
             sendAPDU(keyApdu);
             
@@ -478,7 +486,7 @@ public class SmartCardService {
             System.arraycopy(phoneBytes, 0, data, 1, phoneBytes.length);
             System.arraycopy(infoBytes, 0, data, 1 + phoneBytes.length, infoBytes.length);
 
-            System.out.println("[JCSIM] 📤 Sending info (" + infoBytes.length + " bytes) to card for encryption...");
+            System.out.println("[JCSIM] 📤 Sending info (" + infoBytes.length + " bytes) to card for AES encryption...");
             CommandAPDU apdu = new CommandAPDU(CLA, INS_UPDATE_INFO, 0x00, 0x00, data);
             ResponseAPDU resp = sendAPDU(apdu);
 
@@ -486,7 +494,7 @@ public class SmartCardService {
                 this.recoveryPhone = phone;
                 this.savedInfo = info;
                 saveCardState();
-                System.out.println("[JCSIM] ✅ Info encrypted and saved");
+                System.out.println("[JCSIM] ✅ Info encrypted (AES) and saved");
                 return true;
             }
         } catch (Exception e) {
@@ -502,7 +510,7 @@ public class SmartCardService {
             return savedInfo;
         }
 
-        System.out.println("[JCSIM] 📥 Requesting decrypted info...");
+        System.out.println("[JCSIM] 📥 Requesting decrypted info from card...");
         CommandAPDU apdu = new CommandAPDU(CLA, INS_GET_INFO, 0x00, 0x00, INFO_MAX_SIZE);
         ResponseAPDU resp = sendAPDU(apdu);
 
@@ -511,7 +519,7 @@ public class SmartCardService {
             if (data.length > 0) {
                 try {
                     savedInfo = new String(data, "UTF-8").trim();
-                    System.out.println("[JCSIM] ✅ Received plaintext info");
+                    System.out.println("[JCSIM] ✅ Received plaintext info (decrypted by card)");
                     return savedInfo;
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -522,26 +530,26 @@ public class SmartCardService {
         return savedInfo;
     }
 
-    // ====================== AVATAR OPERATIONS - PC ENCRYPTS ======================
+    // ====================== AVATAR OPERATIONS - PC ENCRYPTS với AES ======================
     
     /**
-     * ✅ MÃ HÓA AVATAR PC-SIDE
+     * ✅ MÃ HÓA AVATAR PC-SIDE với AES
      */
     private byte[] encryptAvatar(byte[] plaintext) throws Exception {
-        desCipher.init(Cipher.ENCRYPT_MODE, desKey, ivSpec);
-        return desCipher.doFinal(plaintext);
+        aesCipher.init(Cipher.ENCRYPT_MODE, aesKey, ivSpec);
+        return aesCipher.doFinal(plaintext);
     }
 
     /**
-     * ✅ GIẢI MÃ AVATAR PC-SIDE
+     * ✅ GIẢI MÃ AVATAR PC-SIDE với AES
      */
     private byte[] decryptAvatar(byte[] encrypted) throws Exception {
-        desCipher.init(Cipher.DECRYPT_MODE, desKey, ivSpec);
-        return desCipher.doFinal(encrypted);
+        aesCipher.init(Cipher.DECRYPT_MODE, aesKey, ivSpec);
+        return aesCipher.doFinal(encrypted);
     }
 
     /**
-     * ✅ UPLOAD AVATAR - MÃ HÓA TOÀN BỘ TRƯỚC
+     * ✅ UPLOAD AVATAR - MÃ HÓA TOÀN BỘ TRƯỚC với AES
      */
     public boolean uploadAvatar(byte[] avatarData) {
         if (!pinVerified) {
@@ -560,9 +568,9 @@ public class SmartCardService {
         }
 
         try {
-            System.out.println("[JCSIM] 🔐 Encrypting avatar on PC (" + avatarData.length + " bytes)...");
+            System.out.println("[JCSIM] 🔐 Encrypting avatar on PC with AES (" + avatarData.length + " bytes)...");
             
-            // ✅ MÃ HÓA TOÀN BỘ
+            // ✅ MÃ HÓA TOÀN BỘ với AES
             byte[] encrypted = encryptAvatar(avatarData);
             
             System.out.println("[JCSIM] ✅ Encrypted size: " + encrypted.length + " bytes");
@@ -596,7 +604,7 @@ public class SmartCardService {
             savedAvatar = avatarData.clone();
             saveCardState();
             
-            System.out.println("[JCSIM] ✅ Avatar uploaded! Chunks: " + chunkCount);
+            System.out.println("[JCSIM] ✅ Avatar uploaded with AES! Chunks: " + chunkCount);
             return true;
 
         } catch (Exception e) {
@@ -607,7 +615,7 @@ public class SmartCardService {
     }
 
     /**
-     * ✅ GET AVATAR - TẢI VỀ VÀ GIẢI MÃ
+     * ✅ GET AVATAR - TẢI VỀ VÀ GIẢI MÃ với AES
      */
     public byte[] getAvatar() {
         if (!pinVerified) {
@@ -649,9 +657,9 @@ public class SmartCardService {
             
             if (encrypted.length > 0) {
                 System.out.println("[JCSIM] ✅ Downloaded " + encrypted.length + " bytes (encrypted)");
-                System.out.println("[JCSIM] 🔓 Decrypting on PC...");
+                System.out.println("[JCSIM] 🔓 Decrypting on PC with AES...");
                 
-                // ✅ GIẢI MÃ
+                // ✅ GIẢI MÃ với AES
                 byte[] plaintext = decryptAvatar(encrypted);
                 
                 savedAvatar = plaintext;
@@ -819,7 +827,7 @@ public class SmartCardService {
         CommandAPDU apdu = new CommandAPDU(CLA, INS_INIT_CRYPTO, 0x00, 0x00, 1);
         sendAPDU(apdu);
         
-        byte[] keyToSet = derive3DESKey(currentPIN != null ? currentPIN : "123456");
+        byte[] keyToSet = deriveAESKey(currentPIN != null ? currentPIN : "123456");
         apdu = new CommandAPDU(CLA, INS_SET_AES_KEY, 0x00, 0x00, keyToSet);
         sendAPDU(apdu);
         
@@ -843,12 +851,12 @@ public class SmartCardService {
         System.out.println("║ First login:  " + (isFirstLogin ? "⚠️ Yes" : "No"));
         System.out.println("║ Blocked:      " + (isCardBlocked ? "🔒 Yes" : "No"));
         System.out.println("║ Balance:      " + savedBalance + " VNĐ");
-        System.out.println("║ Encryption:   ✅ PC-side 3DES");
+        System.out.println("║ Encryption:   ✅ PC-side AES-128");
         System.out.println("╚════════════════════════════════════════════╝\n");
     }
 
     private static class CardState implements Serializable {
-        private static final long serialVersionUID = 6L;
+        private static final long serialVersionUID = 7L;  // Tăng version vì đổi encryption
         String cardId;
         String recoveryPhone;
         String currentPIN;
