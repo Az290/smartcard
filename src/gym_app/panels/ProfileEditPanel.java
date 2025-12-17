@@ -19,9 +19,9 @@ import java.sql.*;
 
 /**
  * Màn hình sửa thông tin cá nhân
- * ✅ Avatar: PC mã hóa → Card lưu encrypted → PC giải mã khi hiển thị
- * ✅ Info: Card mã hóa → Card giải mã khi get
- * ✅ Database: Mã hóa AES theo SecurityUtils
+ *  Avatar: PC mã hóa → Card lưu encrypted → PC giải mã khi hiển thị
+ *  Info: Card mã hóa → Card giải mã khi get
+ *  Database: Mã hóa AES theo SecurityUtils
  */
 public class ProfileEditPanel extends JPanel {
 
@@ -56,7 +56,7 @@ public class ProfileEditPanel extends JPanel {
         content.setBackground(new Color(30, 30, 45));
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        JLabel title = new JLabel("👤 THÔNG TIN CÁ NHÂN");
+        JLabel title = new JLabel(" THÔNG TIN CÁ NHÂN");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(52, 152, 219));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -68,7 +68,7 @@ public class ProfileEditPanel extends JPanel {
         buttonPanel.setBackground(new Color(30, 30, 45));
         buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        GymButton btnSave = GymButton.success("💾 LƯU THAY ĐỔI");
+        GymButton btnSave = GymButton.success(" LƯU THAY ĐỔI");
         btnSave.setPreferredSize(new Dimension(200, 50));
         btnSave.addActionListener(e -> saveProfile());
 
@@ -104,7 +104,7 @@ public class ProfileEditPanel extends JPanel {
         panel.setMaximumSize(new Dimension(300, 300));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel titleLabel = new JLabel("📷 ẢNH ĐẠI DIỆN");
+        JLabel titleLabel = new JLabel(" ẢNH ĐẠI DIỆN");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         titleLabel.setForeground(new Color(0, 200, 180));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -116,7 +116,7 @@ public class ProfileEditPanel extends JPanel {
         lblAvatar.setBorder(BorderFactory.createLineBorder(new Color(100, 100, 120), 2));
         setDefaultAvatar();
 
-        GymButton btnUpload = new GymButton("📤 Chọn ảnh mới", new Color(100, 100, 130));
+        GymButton btnUpload = new GymButton(" Chọn ảnh mới", new Color(100, 100, 130));
         btnUpload.setMaximumSize(new Dimension(200, 35));
         btnUpload.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnUpload.addActionListener(e -> uploadAvatar());
@@ -148,7 +148,7 @@ public class ProfileEditPanel extends JPanel {
         panel.setMaximumSize(new Dimension(600, 400));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel formTitle = new JLabel("📝 THÔNG TIN CÁ NHÂN");
+        JLabel formTitle = new JLabel(" THÔNG TIN CÁ NHÂN");
         formTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         formTitle.setForeground(new Color(0, 200, 180));
 
@@ -160,17 +160,17 @@ public class ProfileEditPanel extends JPanel {
 
         panel.add(formTitle);
         panel.add(Box.createVerticalStrut(20));
-        panel.add(createFieldRow("👤 Họ và tên *", txtName));
+        panel.add(createFieldRow(" Họ và tên *", txtName));
         panel.add(Box.createVerticalStrut(15));
-        panel.add(createFieldRow("📱 Số điện thoại *", txtPhone));
+        panel.add(createFieldRow(" Số điện thoại *", txtPhone));
         panel.add(Box.createVerticalStrut(15));
-        panel.add(createFieldRow("📧 Email", txtEmail));
+        panel.add(createFieldRow(" Email", txtEmail));
         panel.add(Box.createVerticalStrut(15));
-        panel.add(createFieldRow("🎂 Ngày sinh (dd/MM/yyyy)", txtBirthDate));
+        panel.add(createFieldRow(" Ngày sinh (dd/MM/yyyy)", txtBirthDate));
         panel.add(Box.createVerticalStrut(15));
-        panel.add(createFieldRow("🏠 Địa chỉ", txtAddress));
+        panel.add(createFieldRow(" Địa chỉ", txtAddress));
 
-        JLabel lblImportant = new JLabel("<html><span style='color:#e74c3c'>⚠️ SĐT dùng để mở khóa thẻ nếu quên PIN!</span></html>");
+        JLabel lblImportant = new JLabel("<html><span style='color:#e74c3c'>️ SĐT dùng để mở khóa thẻ nếu quên PIN!</span></html>");
         lblImportant.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblImportant.setAlignmentX(Component.LEFT_ALIGNMENT);
         
@@ -246,20 +246,20 @@ public class ProfileEditPanel extends JPanel {
                 lblAvatarInfo.setText("⏳ Đang nén ảnh...");
                 lblAvatarInfo.setForeground(new Color(241, 196, 15));
                 
-                // ✅ Tự động nén để vừa 10KB
+                //  Tự động nén để vừa 10KB
                 byte[] imageData = compressToFit(originalImg);
                 
                 setCursor(Cursor.getDefaultCursor());
                 
                 if (imageData == null || imageData.length == 0) {
                     imageData = createPlaceholderAvatar();
-                    lblAvatarInfo.setText("⚠️ Dùng ảnh mặc định (" + imageData.length + " bytes)");
+                    lblAvatarInfo.setText("️ Dùng ảnh mặc định (" + imageData.length + " bytes)");
                 } else {
-                    lblAvatarInfo.setText("✅ " + String.format("%.1f KB", imageData.length / 1024.0));
+                    lblAvatarInfo.setText(" " + String.format("%.1f KB", imageData.length / 1024.0));
                     lblAvatarInfo.setForeground(new Color(46, 204, 113));
                 }
 
-                // ✅ Lưu PLAINTEXT vào newAvatarData
+                //  Lưu PLAINTEXT vào newAvatarData
                 newAvatarData = imageData;
                 
                 // Preview
@@ -268,9 +268,9 @@ public class ProfileEditPanel extends JPanel {
                 
                 JOptionPane.showMessageDialog(this,
                     "<html><center>" +
-                    "<h3>✅ Đã chọn ảnh mới!</h3>" +
+                    "<h3> Đã chọn ảnh mới!</h3>" +
                     "<p>Dung lượng: <b>" + String.format("%.1f KB", imageData.length / 1024.0) + "</b></p>" +
-                    "<p style='color:#f1c40f'>⚠️ Ảnh sẽ được mã hóa khi lưu vào thẻ</p>" +
+                    "<p style='color:#f1c40f'>️ Ảnh sẽ được mã hóa khi lưu vào thẻ</p>" +
                     "</center></html>",
                     "Thành công", 
                     JOptionPane.INFORMATION_MESSAGE);
@@ -356,7 +356,7 @@ public class ProfileEditPanel extends JPanel {
     }
 
     /**
-     * ✅ Load dữ liệu hiện tại
+     *  Load dữ liệu hiện tại
      */
     private void loadCurrentData() {
         newAvatarData = null;
@@ -378,12 +378,12 @@ public class ProfileEditPanel extends JPanel {
                     String phoneEnc = rs.getString("phone_enc");
                     String birthEnc = rs.getString("birth_date_enc");
                     
-                    // ✅ GIẢI MÃ trước khi hiển thị
+                    //  GIẢI MÃ trước khi hiển thị
                     txtName.setText(nameEnc != null ? SecurityUtils.decrypt(nameEnc) : "");
                     txtPhone.setText(phoneEnc != null ? SecurityUtils.decrypt(phoneEnc) : "");
                     txtBirthDate.setText(birthEnc != null ? SecurityUtils.decrypt(birthEnc) : "");
                     
-                    System.out.println("[Profile] ✅ Loaded DECRYPTED info from database");
+                    System.out.println("[Profile]  Loaded DECRYPTED info from database");
                 } else {
                     // Fallback từ MainFrame
                     txtName.setText(mainFrame.getCurrentName() != null ? mainFrame.getCurrentName() : "");
@@ -394,7 +394,7 @@ public class ProfileEditPanel extends JPanel {
                 rs.close();
                 ps.close();
             } catch (SQLException e) {
-                System.out.println("[Profile] ❌ Database error: " + e.getMessage());
+                System.out.println("[Profile]  Database error: " + e.getMessage());
                 e.printStackTrace();
             }
         }
@@ -402,27 +402,27 @@ public class ProfileEditPanel extends JPanel {
         // ========== 2. LOAD AVATAR TỪ THẺ (ENCRYPTED → DECRYPTED) ==========
         if (mainFrame.getCardService().isPinVerified()) {
             try {
-                System.out.println("[Profile] 📥 Loading avatar from card...");
+                System.out.println("[Profile]  Loading avatar from card...");
                 
-                // ✅ getAvatar() TỰ ĐỘNG DOWNLOAD VÀ GIẢI MÃ
+                //  getAvatar() TỰ ĐỘNG DOWNLOAD VÀ GIẢI MÃ
                 currentAvatarData = mainFrame.getCardService().getAvatar();
                 
                 if (currentAvatarData != null && currentAvatarData.length > 0) {
-                    System.out.println("[Profile] ✅ Received DECRYPTED avatar: " + 
+                    System.out.println("[Profile]  Received DECRYPTED avatar: " + 
                         String.format("%.1f KB", currentAvatarData.length / 1024.0));
                     
-                    // ✅ Hiển thị plaintext image
+                    //  Hiển thị plaintext image
                     try {
                         ImageIcon icon = new ImageIcon(currentAvatarData);
                         Image scaled = icon.getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
                         lblAvatar.setIcon(new ImageIcon(scaled));
-                        lblAvatarInfo.setText("✅ " + String.format("%.1f KB", currentAvatarData.length / 1024.0));
+                        lblAvatarInfo.setText(" " + String.format("%.1f KB", currentAvatarData.length / 1024.0));
                         lblAvatarInfo.setForeground(new Color(46, 204, 113));
                     } catch (Exception e) {
-                        System.out.println("[Profile] ❌ Cannot display avatar: " + e.getMessage());
+                        System.out.println("[Profile]  Cannot display avatar: " + e.getMessage());
                         e.printStackTrace();
                         setDefaultAvatar();
-                        lblAvatarInfo.setText("❌ Ảnh lỗi");
+                        lblAvatarInfo.setText(" Ảnh lỗi");
                         lblAvatarInfo.setForeground(new Color(231, 76, 60));
                     }
                 } else {
@@ -432,14 +432,14 @@ public class ProfileEditPanel extends JPanel {
                     lblAvatarInfo.setForeground(Color.GRAY);
                 }
             } catch (Exception e) {
-                System.out.println("[Profile] ❌ Error loading avatar: " + e.getMessage());
+                System.out.println("[Profile]  Error loading avatar: " + e.getMessage());
                 e.printStackTrace();
                 setDefaultAvatar();
                 lblAvatarInfo.setText("Lỗi tải ảnh");
                 lblAvatarInfo.setForeground(new Color(231, 76, 60));
             }
         } else {
-            System.out.println("[Profile] ⚠️ PIN not verified, cannot load avatar");
+            System.out.println("[Profile] ️ PIN not verified, cannot load avatar");
             setDefaultAvatar();
             lblAvatarInfo.setText("Chưa đăng nhập");
             lblAvatarInfo.setForeground(Color.GRAY);
@@ -447,7 +447,7 @@ public class ProfileEditPanel extends JPanel {
     }
 
     /**
-     * ✅ LƯU THÔNG TIN - FULL ENCRYPTION
+     *  LƯU THÔNG TIN - FULL ENCRYPTION
      */
     private void saveProfile() {
         String name = txtName.getText().trim();
@@ -473,15 +473,15 @@ public class ProfileEditPanel extends JPanel {
 
         // ========== 1. UPLOAD AVATAR VÀO THẺ (NẾU CÓ) ==========
         if (newAvatarData != null && newAvatarData.length > 0) {
-            System.out.println("[Profile] 📤 Uploading new avatar to card (" + 
+            System.out.println("[Profile]  Uploading new avatar to card (" + 
                 String.format("%.1f KB", newAvatarData.length / 1024.0) + ")...");
             
-            // ✅ uploadAvatar() TỰ ĐỘNG MÃ HÓA VÀ UPLOAD
+            //  uploadAvatar() TỰ ĐỘNG MÃ HÓA VÀ UPLOAD
             if (mainFrame.getCardService().uploadAvatar(newAvatarData)) {
-                System.out.println("[Profile] ✅ Avatar uploaded and ENCRYPTED on card");
+                System.out.println("[Profile]  Avatar uploaded and ENCRYPTED on card");
                 currentAvatarData = newAvatarData; // Update current
             } else {
-                System.out.println("[Profile] ❌ Avatar upload FAILED");
+                System.out.println("[Profile]  Avatar upload FAILED");
                 showError("Không thể lưu ảnh vào thẻ!\nVui lòng thử lại.");
                 return;
             }
@@ -495,15 +495,15 @@ public class ProfileEditPanel extends JPanel {
             System.out.println("[Profile] Name truncated to: " + infoForCard);
         }
         
-        System.out.println("[Profile] 💾 Saving info to card...");
-        // ✅ updateInfo() → Card tự mã hóa
+        System.out.println("[Profile]  Saving info to card...");
+        //  updateInfo() → Card tự mã hóa
         boolean cardSaved = mainFrame.getCardService().updateInfo(phone, infoForCard);
         
         if (!cardSaved) {
             showError("Lưu thông tin vào thẻ thất bại!");
             return;
         }
-        System.out.println("[Profile] ✅ Info saved and ENCRYPTED on card");
+        System.out.println("[Profile]  Info saved and ENCRYPTED on card");
 
         // ========== 3. LƯU VÀO DATABASE (MÃ HÓA) ==========
         String cardId = mainFrame.getCurrentCardId();
@@ -511,9 +511,9 @@ public class ProfileEditPanel extends JPanel {
         
         if (conn != null) {
             try {
-                System.out.println("[Profile] 💾 Saving to database (encrypted)...");
+                System.out.println("[Profile]  Saving to database (encrypted)...");
                 
-                // ✅ MÃ HÓA dữ liệu trước khi lưu
+                //  MÃ HÓA dữ liệu trước khi lưu
                 String nameEnc = SecurityUtils.encrypt(name);
                 String phoneEnc = SecurityUtils.encrypt(phone);
                 String phoneHash = SecurityUtils.hashPhone(phone);
@@ -541,7 +541,7 @@ public class ProfileEditPanel extends JPanel {
                     ps.setString(5, cardId);
                     ps.executeUpdate();
                     ps.close();
-                    System.out.println("[Profile] ✅ Database UPDATED (encrypted)");
+                    System.out.println("[Profile]  Database UPDATED (encrypted)");
                 } else {
                     // INSERT
                     String sql = "INSERT INTO members (card_id, name_enc, phone_enc, phone_hash, " +
@@ -554,11 +554,11 @@ public class ProfileEditPanel extends JPanel {
                     ps.setString(5, birthEnc);
                     ps.executeUpdate();
                     ps.close();
-                    System.out.println("[Profile] ✅ Database INSERTED (encrypted)");
+                    System.out.println("[Profile]  Database INSERTED (encrypted)");
                 }
                 
             } catch (SQLException e) {
-                System.out.println("[Profile] ❌ Database error: " + e.getMessage());
+                System.out.println("[Profile]  Database error: " + e.getMessage());
                 e.printStackTrace();
                 showError("Lỗi lưu database: " + e.getMessage());
                 return;
@@ -575,10 +575,10 @@ public class ProfileEditPanel extends JPanel {
 
         JOptionPane.showMessageDialog(this,
             "<html><center>" +
-            "<h2>✅ LƯU THÀNH CÔNG!</h2>" +
-            "<p>✅ Thẻ: Info encrypted (AES)</p>" +
-            (newAvatarData != null ? "<p>✅ Thẻ: Avatar encrypted (AES PC-side)</p>" : "") +
-            "<p>✅ Database: Encrypted (AES)</p>" +
+            "<h2> LƯU THÀNH CÔNG!</h2>" +
+            "<p> Thẻ: Info encrypted (AES)</p>" +
+            (newAvatarData != null ? "<p> Thẻ: Avatar encrypted (AES PC-side)</p>" : "") +
+            "<p> Database: Encrypted (AES)</p>" +
             "<br><p style='color:#f1c40f'>SĐT <b>" + phone + "</b> dùng để mở khóa thẻ</p>" +
             "</center></html>",
             "Thành công",
@@ -589,7 +589,7 @@ public class ProfileEditPanel extends JPanel {
     }
 
     /**
-     * ✅ Cắt chuỗi UTF-8 đúng cách
+     *  Cắt chuỗi UTF-8 đúng cách
      */
     private String truncateUTF8(String str, int maxBytes) {
         if (str == null) return "";
@@ -610,7 +610,7 @@ public class ProfileEditPanel extends JPanel {
     }
 
     /**
-     * ✅ Được gọi khi panel hiển thị
+     *  Được gọi khi panel hiển thị
      */
     public void onShow() {
         loadCurrentData();

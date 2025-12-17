@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * Màn hình Check-in
- * ✅ Fix: Check-in 2 buổi/ngày (sáng 5h-14h, chiều 14h-23h)
+ *  Fix: Check-in 2 buổi/ngày (sáng 5h-14h, chiều 14h-23h)
  */
 public class CheckinPanel extends JPanel {
 
@@ -21,10 +21,10 @@ public class CheckinPanel extends JPanel {
     private JLabel lblStatus;
     private JLabel lblTime;
     private JLabel lblPackageInfo;
-    private JLabel lblLastCheckin; // ✅ THÊM
+    private JLabel lblLastCheckin; //  THÊM
     private JPanel historyPanel;
     private Timer clockTimer;
-    private GymButton btnCheckin; // ✅ THÊM
+    private GymButton btnCheckin; //  THÊM
 
     public CheckinPanel(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
@@ -43,7 +43,7 @@ public class CheckinPanel extends JPanel {
         content.setBackground(new Color(30, 30, 45));
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        JLabel title = new JLabel("🚪 CHECK-IN VÀO PHÒNG TẬP");
+        JLabel title = new JLabel(" CHECK-IN VÀO PHÒNG TẬP");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(155, 89, 182));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -77,7 +77,7 @@ public class CheckinPanel extends JPanel {
             BorderFactory.createLineBorder(new Color(155, 89, 182), 2),
             new EmptyBorder(30, 50, 30, 50)
         ));
-        panel.setMaximumSize(new Dimension(500, 220)); // ✅ TĂNG HEIGHT
+        panel.setMaximumSize(new Dimension(500, 220)); //  TĂNG HEIGHT
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         lblTime = new JLabel("00:00:00");
@@ -97,7 +97,7 @@ public class CheckinPanel extends JPanel {
         lblStatus.setForeground(new Color(241, 196, 15));
         lblStatus.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // ✅ THÊM
+        //  THÊM
         lblLastCheckin = new JLabel(" ");
         lblLastCheckin.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblLastCheckin.setForeground(Color.GRAY);
@@ -108,8 +108,8 @@ public class CheckinPanel extends JPanel {
         panel.add(lblDate);
         panel.add(Box.createVerticalStrut(15));
         panel.add(lblStatus);
-        panel.add(Box.createVerticalStrut(5)); // ✅ THÊM
-        panel.add(lblLastCheckin); // ✅ THÊM
+        panel.add(Box.createVerticalStrut(5)); //  THÊM
+        panel.add(lblLastCheckin); //  THÊM
 
         return panel;
     }
@@ -125,7 +125,7 @@ public class CheckinPanel extends JPanel {
         panel.setMaximumSize(new Dimension(600, 150));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("📦 TRẠNG THÁI GÓI TẬP");
+        JLabel title = new JLabel(" TRẠNG THÁI GÓI TẬP");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(new Color(0, 200, 180));
 
@@ -145,8 +145,8 @@ public class CheckinPanel extends JPanel {
         panel.setBackground(new Color(30, 30, 45));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // ✅ SỬA: Bỏ "GymButton" ở đầu
-        btnCheckin = new GymButton("🚪 CHECK-IN NGAY", new Color(155, 89, 182));
+        //  SỬA: Bỏ "GymButton" ở đầu
+        btnCheckin = new GymButton(" CHECK-IN NGAY", new Color(155, 89, 182));
         btnCheckin.setPreferredSize(new Dimension(250, 60));
         btnCheckin.setFont(new Font("Segoe UI", Font.BOLD, 18));
         btnCheckin.addActionListener(e -> doCheckin());
@@ -172,7 +172,7 @@ public class CheckinPanel extends JPanel {
         panel.setMaximumSize(new Dimension(600, 200));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("📋 LỊCH SỬ CHECK-IN THÁNG NÀY");
+        JLabel title = new JLabel(" LỊCH SỬ CHECK-IN THÁNG NÀY");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(new Color(0, 200, 180));
 
@@ -183,7 +183,7 @@ public class CheckinPanel extends JPanel {
     }
 
     /**
-     * ✅ THÊM: Kiểm tra đã check-in buổi hiện tại chưa
+     *  THÊM: Kiểm tra đã check-in buổi hiện tại chưa
      */
     private boolean hasCheckedInThisSession() {
         String cardId = mainFrame.getCurrentCardId();
@@ -226,7 +226,7 @@ public class CheckinPanel extends JPanel {
     }
 
     /**
-     * ✅ THÊM: Lấy thời gian check-in buổi hiện tại
+     *  THÊM: Lấy thời gian check-in buổi hiện tại
      */
     private java.sql.Timestamp getLastCheckinThisSession() {
         String cardId = mainFrame.getCurrentCardId();
@@ -269,7 +269,7 @@ public class CheckinPanel extends JPanel {
     }
 
     /**
-     * ✅ THÊM: Lấy tên buổi
+     *  THÊM: Lấy tên buổi
      */
     private String getCurrentSessionName() {
         int hour = LocalDateTime.now().getHour();
@@ -279,7 +279,7 @@ public class CheckinPanel extends JPanel {
     private void doCheckin() {
         System.out.println("\n[Checkin] ====== BẮT ĐẦU CHECK-IN =======");
 
-        // ✅ Kiểm tra đã check-in buổi này chưa
+        //  Kiểm tra đã check-in buổi này chưa
         if (hasCheckedInThisSession()) {
             java.sql.Timestamp lastTime = getLastCheckinThisSession();
             String timeStr = lastTime != null ? 
@@ -287,7 +287,7 @@ public class CheckinPanel extends JPanel {
             
             JOptionPane.showMessageDialog(this,
                 "<html><center>" +
-                "<h2>⚠️ ĐÃ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase() + "!</h2>" +
+                "<h2>️ ĐÃ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase() + "!</h2>" +
                 "<p>Bạn đã check-in buổi " + getCurrentSessionName() + " lúc <b>" + timeStr + "</b></p>" +
                 "<p>Mỗi buổi chỉ được check-in 1 lần.</p>" +
                 "<p style='color:#888'>Buổi sáng: 5h-14h | Buổi chiều: 14h-23h</p>" +
@@ -295,7 +295,7 @@ public class CheckinPanel extends JPanel {
                 "Thông báo",
                 JOptionPane.WARNING_MESSAGE
             );
-            System.out.println("[Checkin] ❌ Already checked in this session at " + timeStr);
+            System.out.println("[Checkin]  Already checked in this session at " + timeStr);
             return;
         }
 
@@ -306,14 +306,14 @@ public class CheckinPanel extends JPanel {
         if (packages.isEmpty()) {
             JOptionPane.showMessageDialog(this,
                 "<html><center>" +
-                "<h2>❌ KHÔNG THỂ CHECK-IN</h2>" +
+                "<h2> KHÔNG THỂ CHECK-IN</h2>" +
                 "<p>Bạn chưa có gói tập hoặc gói đã hết hạn!</p>" +
                 "<p>Vui lòng mua gói tập để tiếp tục.</p>" +
                 "</center></html>",
                 "Lỗi",
                 JOptionPane.WARNING_MESSAGE
             );
-            System.out.println("[Checkin] ❌ No active packages");
+            System.out.println("[Checkin]  No active packages");
             return;
         }
 
@@ -322,28 +322,28 @@ public class CheckinPanel extends JPanel {
                 LocalDateTime now = LocalDateTime.now();
                 String timeStr = now.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
-                lblStatus.setText("✅ ĐÃ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase());
+                lblStatus.setText(" ĐÃ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase());
                 lblStatus.setForeground(new Color(46, 204, 113));
                 lblLastCheckin.setText("Lúc " + timeStr);
 
                 btnCheckin.setEnabled(false);
-                btnCheckin.setText("✅ Đã check-in buổi " + getCurrentSessionName());
+                btnCheckin.setText(" Đã check-in buổi " + getCurrentSessionName());
 
                 playSuccessAnimation();
 
                 JOptionPane.showMessageDialog(this,
                     "<html><center>" +
-                    "<h1>✅ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase() + " THÀNH CÔNG!</h1>" +
+                    "<h1> CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase() + " THÀNH CÔNG!</h1>" +
                     "<p style='font-size:16px'>Chào mừng <b>" + mainFrame.getCurrentName() + "</b></p>" +
                     "<p>Thời gian: <b>" + timeStr + "</b></p>" +
-                    "<br><p style='color:green; font-size:18px'>💪 Chúc bạn tập luyện vui vẻ!</p>" +
+                    "<br><p style='color:green; font-size:18px'> Chúc bạn tập luyện vui vẻ!</p>" +
                     "</center></html>",
                     "Thành công",
                     JOptionPane.INFORMATION_MESSAGE
                 );
 
                 refreshHistory();
-                System.out.println("[Checkin] ✅ Check-in successful (session: " + getCurrentSessionName() + ")");
+                System.out.println("[Checkin]  Check-in successful (session: " + getCurrentSessionName() + ")");
             }
         } else {
             JOptionPane.showMessageDialog(this,
@@ -417,12 +417,12 @@ public class CheckinPanel extends JPanel {
             if (checkedInThisSession && lastTime != null) {
                 String timeStr = lastTime.toLocalDateTime().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
                 
-                lblStatus.setText("✅ ĐÃ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase());
+                lblStatus.setText(" ĐÃ CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase());
                 lblStatus.setForeground(new Color(46, 204, 113));
                 lblLastCheckin.setText("Lúc " + timeStr);
                 
                 btnCheckin.setEnabled(false);
-                btnCheckin.setText("✅ Đã check-in buổi " + getCurrentSessionName());
+                btnCheckin.setText(" Đã check-in buổi " + getCurrentSessionName());
                 
                 System.out.println("[Checkin] Already checked in this session at " + timeStr);
             } else {
@@ -431,7 +431,7 @@ public class CheckinPanel extends JPanel {
                 lblLastCheckin.setText(" ");
                 
                 btnCheckin.setEnabled(true);
-                btnCheckin.setText("🚪 CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase());
+                btnCheckin.setText(" CHECK-IN BUỔI " + getCurrentSessionName().toUpperCase());
                 
                 System.out.println("[Checkin] Not checked in this session yet");
             }
@@ -440,11 +440,11 @@ public class CheckinPanel extends JPanel {
                 mainFrame.getDbService().getActiveMemberPackages(cardId);
 
             if (packages.isEmpty()) {
-                lblPackageInfo.setText("<html><span style='color:#e74c3c'>⚠️ Không có gói tập! Vui lòng mua gói.</span></html>");
+                lblPackageInfo.setText("<html><span style='color:#e74c3c'>️ Không có gói tập! Vui lòng mua gói.</span></html>");
             } else {
                 StringBuilder sb = new StringBuilder("<html>");
                 for (DatabaseService.MemberPackageInfo pkg : packages) {
-                    sb.append("✅ ").append(pkg.packageName);
+                    sb.append(" ").append(pkg.packageName);
                     if (pkg.expireDate != null) {
                         long days = (pkg.expireDate.getTime() - System.currentTimeMillis()) / (1000*60*60*24);
                         sb.append(" - Còn ").append(days).append(" ngày");

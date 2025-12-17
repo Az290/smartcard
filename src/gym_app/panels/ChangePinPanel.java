@@ -9,7 +9,7 @@ import java.awt.*;
 
 /**
  * Màn hình đổi PIN
- * ✅ Fix: Hiện nút "Quay lại đăng nhập" sau khi đổi PIN thành công
+ *  Fix: Hiện nút "Quay lại đăng nhập" sau khi đổi PIN thành công
  */
 public class ChangePinPanel extends JPanel {
 
@@ -22,7 +22,7 @@ public class ChangePinPanel extends JPanel {
     private JProgressBar strengthBar;
     private JLabel lblTitle;
     private JLabel lblSubtitle;
-    private JPanel buttonPanel; // ✅ THÊM
+    private JPanel buttonPanel; //  THÊM
     
     // Mode: first time hoặc normal
     private boolean isFirstTimeMode = false;
@@ -44,7 +44,7 @@ public class ChangePinPanel extends JPanel {
         content.setBackground(new Color(30, 30, 45));
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        lblTitle = new JLabel("🔐 ĐỔI MÃ PIN");
+        lblTitle = new JLabel(" ĐỔI MÃ PIN");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
         lblTitle.setForeground(new Color(155, 89, 182));
         lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -57,12 +57,12 @@ public class ChangePinPanel extends JPanel {
         JPanel formPanel = createFormPanel();
         JPanel tipsPanel = createTipsPanel();
 
-        // ✅ SỬA: Bỏ "JPanel" ở đầu
+        //  SỬA: Bỏ "JPanel" ở đầu
         buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         buttonPanel.setBackground(new Color(30, 30, 45));
         buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        GymButton btnChange = GymButton.success("✓ ĐỔI PIN");
+        GymButton btnChange = GymButton.success(" ĐỔI PIN");
         btnChange.setPreferredSize(new Dimension(200, 50));
         btnChange.addActionListener(e -> doChangePin());
 
@@ -109,14 +109,14 @@ public class ChangePinPanel extends JPanel {
         panel.setMaximumSize(new Dimension(400, 350));
         panel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel lblCurrent = new JLabel("🔑 PIN hiện tại:");
+        JLabel lblCurrent = new JLabel(" PIN hiện tại:");
         lblCurrent.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblCurrent.setForeground(Color.WHITE);
         lblCurrent.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         txtCurrentPin = createPinField();
 
-        JLabel lblNew = new JLabel("🔐 PIN mới (6 số):");
+        JLabel lblNew = new JLabel(" PIN mới (6 số):");
         lblNew.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblNew.setForeground(Color.WHITE);
         lblNew.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -144,7 +144,7 @@ public class ChangePinPanel extends JPanel {
         strengthPanel.add(lblStrength, BorderLayout.WEST);
         strengthPanel.add(strengthBar, BorderLayout.EAST);
 
-        JLabel lblConfirm = new JLabel("🔐 Xác nhận PIN mới:");
+        JLabel lblConfirm = new JLabel(" Xác nhận PIN mới:");
         lblConfirm.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblConfirm.setForeground(Color.WHITE);
         lblConfirm.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -152,34 +152,34 @@ public class ChangePinPanel extends JPanel {
         txtConfirmPin = createPinField();
 
         panel.add(lblCurrent);
-        panel.add(Box.createVerticalStrut(8));
+        panel.add(Box.createVerticalStrut(5));
         panel.add(txtCurrentPin);
-        panel.add(Box.createVerticalStrut(20));
+        panel.add(Box.createVerticalStrut(12));
         panel.add(lblNew);
-        panel.add(Box.createVerticalStrut(8));
+        panel.add(Box.createVerticalStrut(5));
         panel.add(txtNewPin);
-        panel.add(Box.createVerticalStrut(8));
+        panel.add(Box.createVerticalStrut(5));
         panel.add(strengthPanel);
-        panel.add(Box.createVerticalStrut(20));
+        panel.add(Box.createVerticalStrut(12));
         panel.add(lblConfirm);
-        panel.add(Box.createVerticalStrut(8));
+        panel.add(Box.createVerticalStrut(5));
         panel.add(txtConfirmPin);
 
         return panel;
     }
 
-    private JPasswordField createPinField() {
+   private JPasswordField createPinField() {
         JPasswordField pf = new JPasswordField(6);
-        pf.setFont(new Font("Consolas", Font.BOLD, 24));
+        pf.setFont(new Font("Segoe UI", Font.BOLD, 18)); // Cỡ chữ 18 đồng bộ
         pf.setHorizontalAlignment(JTextField.CENTER);
         pf.setBackground(new Color(60, 60, 75));
         pf.setForeground(Color.WHITE);
         pf.setCaretColor(Color.WHITE);
         pf.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(100, 100, 120)),
-            new EmptyBorder(12, 15, 12, 15)
+            new EmptyBorder(2, 5, 2, 5)                  // Padding tối giản
         ));
-        pf.setMaximumSize(new Dimension(200, 50));
+        pf.setMaximumSize(new Dimension(120, 32));          // Kích thước siêu gọn 120x32
         pf.setAlignmentX(Component.CENTER_ALIGNMENT);
         return pf;
     }
@@ -195,7 +195,7 @@ public class ChangePinPanel extends JPanel {
         panel.setMaximumSize(new Dimension(400, 130));
         panel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel titleLabel = new JLabel("💡 MẸO TẠO PIN AN TOÀN");
+        JLabel titleLabel = new JLabel(" MẸO TẠO PIN AN TOÀN");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         titleLabel.setForeground(new Color(241, 196, 15));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -225,19 +225,19 @@ public class ChangePinPanel extends JPanel {
         strengthBar.setValue(strength);
 
         if (strength < 30) {
-            lblStrength.setText("Yếu ❌");
+            lblStrength.setText("Yếu ");
             lblStrength.setForeground(new Color(231, 76, 60));
             strengthBar.setForeground(new Color(231, 76, 60));
         } else if (strength < 60) {
-            lblStrength.setText("Trung bình ⚠️");
+            lblStrength.setText("Trung bình ️");
             lblStrength.setForeground(new Color(241, 196, 15));
             strengthBar.setForeground(new Color(241, 196, 15));
         } else if (strength < 80) {
-            lblStrength.setText("Khá tốt 👍");
+            lblStrength.setText("Khá tốt ");
             lblStrength.setForeground(new Color(52, 152, 219));
             strengthBar.setForeground(new Color(52, 152, 219));
         } else {
-            lblStrength.setText("Mạnh ✅");
+            lblStrength.setText("Mạnh ");
             lblStrength.setForeground(new Color(46, 204, 113));
             strengthBar.setForeground(new Color(46, 204, 113));
         }
@@ -308,7 +308,7 @@ public class ChangePinPanel extends JPanel {
             
             JOptionPane.showMessageDialog(this,
                 "<html><center>" +
-                "<h2>✅ ĐỔI PIN THÀNH CÔNG!</h2>" +
+                "<h2> ĐỔI PIN THÀNH CÔNG!</h2>" +
                 "<p>PIN mới đã được cập nhật.</p>" +
                 "<p><b>Hãy ghi nhớ PIN mới!</b></p>" +
                 "</center></html>",
@@ -322,7 +322,7 @@ public class ChangePinPanel extends JPanel {
                 mainFrame.onLoginSuccess(pendingCardId, pendingName, pendingPhone);
                 setNormalMode();
             } else {
-                // ✅ THÊM: Hiện nút quay lại đăng nhập
+                //  THÊM: Hiện nút quay lại đăng nhập
                 showBackToLoginButton();
             }
 
@@ -334,12 +334,12 @@ public class ChangePinPanel extends JPanel {
     }
 
     /**
-     * ✅ THÊM: Hiện nút "Quay lại đăng nhập"
+     *  THÊM: Hiện nút "Quay lại đăng nhập"
      */
     private void showBackToLoginButton() {
         buttonPanel.removeAll();
         
-        GymButton btnLogin = GymButton.success("🔑 Quay lại đăng nhập");
+        GymButton btnLogin = GymButton.success(" Quay lại đăng nhập");
         btnLogin.setPreferredSize(new Dimension(250, 50));
         btnLogin.addActionListener(e -> {
             clearForm();
@@ -371,7 +371,7 @@ public class ChangePinPanel extends JPanel {
         this.pendingName = name;
         this.pendingPhone = phone;
         
-        lblTitle.setText("🔐 ĐỔI PIN LẦN ĐẦU");
+        lblTitle.setText(" ĐỔI PIN LẦN ĐẦU");
         lblSubtitle.setText("<html><center>Bắt buộc đổi PIN để bảo mật tài khoản.<br>PIN mặc định: <b>123456</b></center></html>");
     }
     
@@ -381,7 +381,7 @@ public class ChangePinPanel extends JPanel {
         this.pendingName = null;
         this.pendingPhone = null;
         
-        lblTitle.setText("🔐 ĐỔI MÃ PIN");
+        lblTitle.setText(" ĐỔI MÃ PIN");
         lblSubtitle.setText("Thay đổi mã PIN để bảo vệ tài khoản");
     }
     
@@ -389,10 +389,10 @@ public class ChangePinPanel extends JPanel {
         clearForm();
         txtCurrentPin.requestFocus();
         
-        // ✅ THÊM: Reset button panel
+        //  THÊM: Reset button panel
         buttonPanel.removeAll();
         
-        GymButton btnChange = GymButton.success("✓ ĐỔI PIN");
+        GymButton btnChange = GymButton.success(" ĐỔI PIN");
         btnChange.setPreferredSize(new Dimension(200, 50));
         btnChange.addActionListener(e -> doChangePin());
 

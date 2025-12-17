@@ -42,12 +42,12 @@ public class TopupPanel extends JPanel {
         content.setBackground(new Color(30, 30, 45));
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        JLabel title = new JLabel("💰 NẠP TIỀN VÀO THẺ");
+        JLabel title = new JLabel(" NẠP TIỀN VÀO THẺ");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(46, 204, 113));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblLimit = new JLabel("<html><span style='color:#f1c40f'>⚠️ Giới hạn: " + 
+        JLabel lblLimit = new JLabel("<html><span style='color:#f1c40f'>️ Giới hạn: " + 
             formatMoney(MIN_TOPUP) + " - " + formatMoney(MAX_TOPUP_PER_TX) + "/lần</span></html>");
         lblLimit.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblLimit.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -62,7 +62,7 @@ public class TopupPanel extends JPanel {
         buttonPanel.setBackground(new Color(30, 30, 45));
         buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        GymButton btnTopup = GymButton.success("✓ XÁC NHẬN NẠP TIỀN");
+        GymButton btnTopup = GymButton.success(" XÁC NHẬN NẠP TIỀN");
         btnTopup.setPreferredSize(new Dimension(250, 50));
         btnTopup.addActionListener(e -> doTopup());
 
@@ -154,7 +154,7 @@ public class TopupPanel extends JPanel {
         panel.setBackground(new Color(30, 30, 45));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("⚡ Chọn nhanh:");
+        JLabel title = new JLabel(" Chọn nhanh:");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(Color.WHITE);
 
@@ -201,7 +201,7 @@ public class TopupPanel extends JPanel {
         panel.setBackground(new Color(30, 30, 45));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("✏️ Hoặc nhập số tiền:");
+        JLabel title = new JLabel("️ Hoặc nhập số tiền:");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(Color.WHITE);
 
@@ -322,7 +322,7 @@ public class TopupPanel extends JPanel {
 
                 JOptionPane.showMessageDialog(this,
                     "<html><center>" +
-                    "<h2>✅ NẠP TIỀN THÀNH CÔNG!</h2>" +
+                    "<h2> NẠP TIỀN THÀNH CÔNG!</h2>" +
                     "<p>Số tiền: <b style='color:green'>" + formatMoney(amount) + "</b></p>" +
                     "<p>Số dư mới: <b style='color:blue'>" + formatMoney(newBalance) + "</b></p>" +
                     "</center></html>",
@@ -345,7 +345,7 @@ public class TopupPanel extends JPanel {
         receiptPanel.removeAll();
         receiptPanel.setVisible(true);
 
-        JLabel titleLabel = new JLabel("🧾 BIÊN LAI NẠP TIỀN");
+        JLabel titleLabel = new JLabel(" BIÊN LAI NẠP TIỀN");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         titleLabel.setForeground(new Color(46, 204, 113));
 

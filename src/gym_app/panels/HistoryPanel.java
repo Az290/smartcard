@@ -83,11 +83,11 @@ public class HistoryPanel extends JPanel {
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        JLabel title = new JLabel("📋 LỊCH SỬ GIAO DỊCH");
+        JLabel title = new JLabel(" LỊCH SỬ GIAO DỊCH");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(241, 196, 15));
 
-        GymButton btnRefresh = new GymButton("🔄 Làm mới", new Color(52, 152, 219));
+        GymButton btnRefresh = new GymButton(" Làm mới", new Color(52, 152, 219));
         btnRefresh.setPreferredSize(new Dimension(130, 40));
         btnRefresh.addActionListener(e -> loadHistory());
 
@@ -120,9 +120,9 @@ public class HistoryPanel extends JPanel {
         lblTransactionCount.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Tạo cards với labels đã khởi tạo
-        JPanel topupCard = createSummaryCard("💰 Tổng nạp", lblTotalTopup, new Color(46, 204, 113));
-        JPanel spentCard = createSummaryCard("🛒 Tổng chi", lblTotalSpent, new Color(231, 76, 60));
-        JPanel countCard = createSummaryCard("📊 Số giao dịch", lblTransactionCount, new Color(52, 152, 219));
+        JPanel topupCard = createSummaryCard(" Tổng nạp", lblTotalTopup, new Color(46, 204, 113));
+        JPanel spentCard = createSummaryCard(" Tổng chi", lblTotalSpent, new Color(231, 76, 60));
+        JPanel countCard = createSummaryCard(" Số giao dịch", lblTransactionCount, new Color(52, 152, 219));
 
         panel.add(topupCard);
         panel.add(spentCard);
@@ -162,7 +162,7 @@ public class HistoryPanel extends JPanel {
         panel.setBackground(new Color(30, 30, 45));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblFilter = new JLabel("🔍 Lọc theo:");
+        JLabel lblFilter = new JLabel(" Lọc theo:");
         lblFilter.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblFilter.setForeground(Color.WHITE);
 
@@ -180,7 +180,7 @@ public class HistoryPanel extends JPanel {
         cboFilter.addActionListener(e -> applyFilter());
 
         // Export button
-        GymButton btnExport = new GymButton("📥 Xuất CSV", new Color(100, 100, 130));
+        GymButton btnExport = new GymButton(" Xuất CSV", new Color(100, 100, 130));
         btnExport.setPreferredSize(new Dimension(120, 35));
         btnExport.addActionListener(e -> exportToCSV());
 
@@ -331,7 +331,7 @@ public class HistoryPanel extends JPanel {
         for (DatabaseService.TransactionInfo tx : transactions) {
             count++;
 
-            String type = tx.type.equals("TOPUP") ? "💰 Nạp tiền" : "🛒 Mua gói";
+            String type = tx.type.equals("TOPUP") ? " Nạp tiền" : " Mua gói";
             String amount = (tx.type.equals("TOPUP") ? "+" : "-") + 
                            String.format("%,d VNĐ", tx.amount);
             String detail = "";
@@ -469,7 +469,7 @@ public class HistoryPanel extends JPanel {
                 }
                 
                 JOptionPane.showMessageDialog(this,
-                    "✅ Xuất file thành công!\n" + chooser.getSelectedFile().getName(),
+                    " Xuất file thành công!\n" + chooser.getSelectedFile().getName(),
                     "Thành công",
                     JOptionPane.INFORMATION_MESSAGE
                 );
@@ -477,7 +477,7 @@ public class HistoryPanel extends JPanel {
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(this,
-                    "❌ Lỗi xuất file: " + ex.getMessage(),
+                    " Lỗi xuất file: " + ex.getMessage(),
                     "Lỗi",
                     JOptionPane.ERROR_MESSAGE
                 );

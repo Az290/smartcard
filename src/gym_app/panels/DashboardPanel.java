@@ -71,7 +71,7 @@ public class DashboardPanel extends JPanel {
         header.setBackground(new Color(30, 30, 45));
         header.setPreferredSize(new Dimension(0, 60));
 
-        lblWelcome = new JLabel("👋 Xin chào!");
+        lblWelcome = new JLabel(" Xin chào!");
         lblWelcome.setFont(new Font("Segoe UI", Font.BOLD, 28));
         lblWelcome.setForeground(Color.WHITE);
 
@@ -99,12 +99,12 @@ public class DashboardPanel extends JPanel {
         panel.add(Box.createVerticalStrut(20));
 
         // Quick buttons
-        GymButton btnUploadAvatar = new GymButton("📷 Đổi ảnh đại diện", new Color(100, 100, 130));
+        GymButton btnUploadAvatar = new GymButton(" Đổi ảnh đại diện", new Color(100, 100, 130));
         btnUploadAvatar.setMaximumSize(new Dimension(250, 40));
         btnUploadAvatar.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnUploadAvatar.addActionListener(e -> uploadAvatar());
 
-        GymButton btnEditProfile = GymButton.info("✏️ Sửa thông tin");
+        GymButton btnEditProfile = GymButton.info("️ Sửa thông tin");
         btnEditProfile.setMaximumSize(new Dimension(250, 40));
         btnEditProfile.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnEditProfile.addActionListener(e -> mainFrame.showScreen(MainFrame.SCREEN_PROFILE));
@@ -140,16 +140,16 @@ public class DashboardPanel extends JPanel {
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        panel.add(createQuickActionCard("💰", "Nạp tiền", new Color(46, 204, 113), 
+        panel.add(createQuickActionCard("", "Nạp tiền", new Color(46, 204, 113), 
             () -> mainFrame.showScreen(MainFrame.SCREEN_TOPUP)));
         
-        panel.add(createQuickActionCard("🛒", "Mua gói tập", new Color(52, 152, 219), 
+        panel.add(createQuickActionCard("", "Mua gói tập", new Color(52, 152, 219), 
             () -> mainFrame.showScreen(MainFrame.SCREEN_BUY_PACKAGE)));
         
-        panel.add(createQuickActionCard("🚪", "Check-in", new Color(155, 89, 182), 
+        panel.add(createQuickActionCard("", "Check-in", new Color(155, 89, 182), 
             () -> mainFrame.showScreen(MainFrame.SCREEN_CHECKIN)));
         
-        panel.add(createQuickActionCard("📋", "Lịch sử", new Color(241, 196, 15), 
+        panel.add(createQuickActionCard("", "Lịch sử", new Color(241, 196, 15), 
             () -> mainFrame.showScreen(MainFrame.SCREEN_HISTORY)));
 
         return panel;
@@ -204,7 +204,7 @@ public class DashboardPanel extends JPanel {
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("📦 GÓI TẬP ĐANG SỬ DỤNG");
+        JLabel title = new JLabel(" GÓI TẬP ĐANG SỬ DỤNG");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(new Color(0, 200, 180));
 
@@ -242,7 +242,7 @@ public class DashboardPanel extends JPanel {
         row.setBorder(new EmptyBorder(10, 15, 10, 15));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        JLabel name = new JLabel("📌 " + pkg.packageName);
+        JLabel name = new JLabel(" " + pkg.packageName);
         name.setFont(new Font("Segoe UI", Font.BOLD, 14));
         name.setForeground(Color.WHITE);
 
@@ -281,7 +281,7 @@ public class DashboardPanel extends JPanel {
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 250));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("📋 GIAO DỊCH GẦN ĐÂY");
+        JLabel title = new JLabel(" GIAO DỊCH GẦN ĐÂY");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(new Color(0, 200, 180));
 
@@ -327,7 +327,7 @@ public class DashboardPanel extends JPanel {
         row.setBorder(new EmptyBorder(8, 12, 8, 12));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 
-        String icon = tx.type.equals("TOPUP") ? "💰" : "🛒";
+        String icon = tx.type.equals("TOPUP") ? "" : "";
         String desc = tx.type.equals("TOPUP") ? "Nạp tiền" : 
                      (tx.packageName != null ? "Mua " + tx.packageName : "Mua gói");
         
@@ -430,7 +430,7 @@ public class DashboardPanel extends JPanel {
                 userCard.setAvatar(data);
                 JOptionPane.showMessageDialog(this, 
                     "<html><center>" +
-                    "<h3>✅ Cập nhật ảnh thành công!</h3>" +
+                    "<h3> Cập nhật ảnh thành công!</h3>" +
                     "<p>Kích thước: <b>" + String.format("%.1f KB", data.length / 1024.0) + "</b></p>" +
                     "</center></html>",
                     "Thành công", 
@@ -449,7 +449,7 @@ public class DashboardPanel extends JPanel {
     // ==================== PUBLIC METHODS ====================
 
   public void setUserInfo(String cardId, String name, String phone) {
-    lblWelcome.setText("👋 Xin chào, " + name + "!");
+    lblWelcome.setText(" Xin chào, " + name + "!");
     userCard.setUserInfo(cardId, name, phone);
     
     // *** CHỈ GỌI SAU KHI LOGIN THÀNH CÔNG ***
@@ -457,13 +457,13 @@ public class DashboardPanel extends JPanel {
         userCard.setBalance(mainFrame.getCardService().getBalance());
         loadAvatarFromCard();
     } else {
-        System.out.println("[Dashboard] ⚠️ PIN not verified, skipping data load");
+        System.out.println("[Dashboard] ️ PIN not verified, skipping data load");
     }
 }
 
 public void refreshData() {
     if (!mainFrame.getCardService().isPinVerified()) {
-        System.out.println("[Dashboard] ⚠️ Cannot refresh - not logged in");
+        System.out.println("[Dashboard] ️ Cannot refresh - not logged in");
         return;
     }
     
@@ -473,7 +473,7 @@ public void refreshData() {
     // Load avatar
     loadAvatarFromCard();
     
-    // ✅ THÊM: Cập nhật trạng thái check-in
+    //  THÊM: Cập nhật trạng thái check-in
     updateCheckinStatus();
     
     // Reload nội dung dashboard
@@ -512,17 +512,17 @@ private void updateCheckinStatus() {
             if (morning + afternoon == 0) {
                 userCard.setStatus("⏳ Chưa check-in");
             } else if (morning > 0 && afternoon > 0) {
-                userCard.setStatus("✅ Đã check-in 2 buổi");
+                userCard.setStatus(" Đã check-in 2 buổi");
             } else if (morning > 0) {
                 String timeStr = lastTime.toLocalDateTime().format(
                     java.time.format.DateTimeFormatter.ofPattern("HH:mm")
                 );
-                userCard.setStatus("✅ Đã check-in sáng (" + timeStr + ")");
+                userCard.setStatus(" Đã check-in sáng (" + timeStr + ")");
             } else {
                 String timeStr = lastTime.toLocalDateTime().format(
                     java.time.format.DateTimeFormatter.ofPattern("HH:mm")
                 );
-                userCard.setStatus("✅ Đã check-in chiều (" + timeStr + ")");
+                userCard.setStatus(" Đã check-in chiều (" + timeStr + ")");
             }
         } else {
             userCard.setStatus("⏳ Chưa check-in");
@@ -538,28 +538,28 @@ private void updateCheckinStatus() {
 private void loadAvatarFromCard() {
     // *** KIỂM TRA ĐÃ LOGIN CHƯA ***
     if (!mainFrame.getCardService().isPinVerified()) {
-        System.out.println("[Dashboard] ⚠️ Cannot load avatar - not logged in");
+        System.out.println("[Dashboard] ️ Cannot load avatar - not logged in");
         return;
     }
     
     try {
-        System.out.println("[Dashboard] 📥 Loading avatar from card...");
+        System.out.println("[Dashboard]  Loading avatar from card...");
         
-        // ✅ getAvatar() ĐÃ TỰ ĐỘNG GIẢI MÃ (trong SmartCardService)
+        //  getAvatar() ĐÃ TỰ ĐỘNG GIẢI MÃ (trong SmartCardService)
         byte[] decryptedAvatar = mainFrame.getCardService().getAvatar();
         
         if (decryptedAvatar != null && decryptedAvatar.length > 0) {
-            System.out.println("[Dashboard] ✅ Received DECRYPTED avatar: " + 
+            System.out.println("[Dashboard]  Received DECRYPTED avatar: " + 
                 String.format("%.1f KB", decryptedAvatar.length / 1024.0));
             
-            // ✅ Hiển thị plaintext image
+            //  Hiển thị plaintext image
             userCard.setAvatar(decryptedAvatar);
         } else {
             System.out.println("[Dashboard] ℹ️ No avatar on card");
             userCard.setAvatar(null); // Set default avatar
         }
     } catch (Exception e) {
-        System.out.println("[Dashboard] ❌ Error loading avatar: " + e.getMessage());
+        System.out.println("[Dashboard]  Error loading avatar: " + e.getMessage());
         e.printStackTrace();
         userCard.setAvatar(null);
     }

@@ -37,13 +37,13 @@ public class PackageListPanel extends JPanel {
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
         // Header
-        JLabel title = new JLabel("📦 DANH SÁCH GÓI TẬP");
+        JLabel title = new JLabel(" DANH SÁCH GÓI TẬP");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(52, 152, 219));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // Packages section
-        JLabel packagesTitle = new JLabel("🏋️ GÓI TẬP THEO THỜI GIAN");
+        JLabel packagesTitle = new JLabel("️ GÓI TẬP THEO THỜI GIAN");
         packagesTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         packagesTitle.setForeground(Color.WHITE);
         packagesTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -53,7 +53,7 @@ public class PackageListPanel extends JPanel {
         packagesContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // Trainers section
-        JLabel trainersTitle = new JLabel("👨‍🏫 HUẤN LUYỆN VIÊN CÁ NHÂN (PT)");
+        JLabel trainersTitle = new JLabel("‍ HUẤN LUYỆN VIÊN CÁ NHÂN (PT)");
         trainersTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         trainersTitle.setForeground(Color.WHITE);
         trainersTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -162,7 +162,7 @@ public class PackageListPanel extends JPanel {
         ));
 
         // Avatar placeholder
-        JLabel avatar = new JLabel("👨‍🏫");
+        JLabel avatar = new JLabel("‍");
         avatar.setFont(new Font("Segoe UI", Font.PLAIN, 40));
         avatar.setPreferredSize(new Dimension(70, 70));
         avatar.setHorizontalAlignment(SwingConstants.CENTER);

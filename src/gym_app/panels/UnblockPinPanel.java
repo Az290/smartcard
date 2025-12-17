@@ -13,7 +13,7 @@ import java.awt.*;
 public class UnblockPinPanel extends JPanel {
 
     private MainFrame mainFrame;
-    
+
     private JTextField txtPhone;
     private JLabel lblResult;
     private JPanel resultPanel;
@@ -31,13 +31,13 @@ public class UnblockPinPanel extends JPanel {
         container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
         container.setBackground(new Color(40, 40, 55));
         container.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(231, 76, 60), 2),
-            new EmptyBorder(40, 50, 40, 50)
+                BorderFactory.createLineBorder(new Color(231, 76, 60), 2),
+                new EmptyBorder(40, 50, 40, 50)
         ));
         container.setPreferredSize(new Dimension(500, 500));
 
         // Icon
-        JLabel icon = new JLabel("🔓");
+        JLabel icon = new JLabel("");
         icon.setFont(new Font("Segoe UI", Font.PLAIN, 60));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -53,29 +53,30 @@ public class UnblockPinPanel extends JPanel {
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Phone input
-        JLabel lblPhone = new JLabel("📱 Số điện thoại đã đăng ký:");
+        JLabel lblPhone = new JLabel(" Số điện thoại đã đăng ký:");
         lblPhone.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblPhone.setForeground(Color.WHITE);
         lblPhone.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         txtPhone = new JTextField(15);
-        txtPhone.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        txtPhone.setFont(new Font("Segoe UI", Font.PLAIN, 16)); // Cỡ chữ 16 thanh thoát
         txtPhone.setHorizontalAlignment(JTextField.CENTER);
         txtPhone.setBackground(new Color(60, 60, 75));
         txtPhone.setForeground(Color.WHITE);
         txtPhone.setCaretColor(Color.WHITE);
         txtPhone.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(100, 100, 120)),
-            new EmptyBorder(12, 15, 12, 15)
+                BorderFactory.createLineBorder(new Color(100, 100, 120)),
+                new EmptyBorder(5, 10, 5, 10) // Padding tối giản
         ));
-        txtPhone.setMaximumSize(new Dimension(280, 50));
+        txtPhone.setMaximumSize(new Dimension(200, 32));      // Chiều ngang 200 (vừa đủ cho SĐT), cao 32
+        txtPhone.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Result panel
         resultPanel = createResultPanel();
         resultPanel.setVisible(false);
 
         // Buttons
-        GymButton btnUnblock = GymButton.danger("🔑 MỞ KHÓA THẺ");
+        GymButton btnUnblock = GymButton.danger(" MỞ KHÓA THẺ");
         btnUnblock.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnUnblock.setMaximumSize(new Dimension(280, 50));
         btnUnblock.addActionListener(e -> doUnblock());
@@ -89,10 +90,10 @@ public class UnblockPinPanel extends JPanel {
         });
 
         // Warning
-        JLabel warning = new JLabel("<html><center style='color:#e74c3c'>" +
-            "⚠️ Lưu ý: Bạn cần nhớ số điện thoại<br>" +
-            "đã đăng ký khi thiết lập thông tin!" +
-            "</center></html>");
+        JLabel warning = new JLabel("<html><center style='color:#e74c3c'>"
+                + "️ Lưu ý: Bạn cần nhớ số điện thoại<br>"
+                + "đã đăng ký khi thiết lập thông tin!"
+                + "</center></html>");
         warning.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         warning.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -123,12 +124,12 @@ public class UnblockPinPanel extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(new Color(40, 70, 40));
         panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(46, 204, 113), 2),
-            new EmptyBorder(20, 25, 20, 25)
+                BorderFactory.createLineBorder(new Color(46, 204, 113), 2),
+                new EmptyBorder(20, 25, 20, 25)
         ));
         panel.setMaximumSize(new Dimension(350, 120));
 
-        JLabel successLabel = new JLabel("✅ MỞ KHÓA THÀNH CÔNG!");
+        JLabel successLabel = new JLabel(" MỞ KHÓA THÀNH CÔNG!");
         successLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         successLabel.setForeground(new Color(46, 204, 113));
         successLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -163,9 +164,9 @@ public class UnblockPinPanel extends JPanel {
         // Kiểm tra có phải thẻ bị khóa không
         if (!mainFrame.getCardService().isCardBlocked()) {
             int confirm = JOptionPane.showConfirmDialog(this,
-                "Thẻ chưa bị khóa.\nBạn có muốn reset PIN về mặc định?",
-                "Xác nhận",
-                JOptionPane.YES_NO_OPTION
+                    "Thẻ chưa bị khóa.\nBạn có muốn reset PIN về mặc định?",
+                    "Xác nhận",
+                    JOptionPane.YES_NO_OPTION
             );
             if (confirm != JOptionPane.YES_OPTION) {
                 return;
@@ -178,13 +179,13 @@ public class UnblockPinPanel extends JPanel {
             resultPanel.setVisible(true);
 
             JOptionPane.showMessageDialog(this,
-                "<html><center>" +
-                "<h2>✅ MỞ KHÓA THÀNH CÔNG!</h2>" +
-                "<p>PIN mới: <b style='font-size:24px; color:green'>123456</b></p>" +
-                "<p style='color:orange'>⚠️ Bạn sẽ phải đổi PIN khi đăng nhập!</p>" +
-                "</center></html>",
-                "Thành công",
-                JOptionPane.INFORMATION_MESSAGE
+                    "<html><center>"
+                    + "<h2> MỞ KHÓA THÀNH CÔNG!</h2>"
+                    + "<p>PIN mới: <b style='font-size:24px; color:green'>123456</b></p>"
+                    + "<p style='color:orange'>️ Bạn sẽ phải đổi PIN khi đăng nhập!</p>"
+                    + "</center></html>",
+                    "Thành công",
+                    JOptionPane.INFORMATION_MESSAGE
             );
 
         } else {

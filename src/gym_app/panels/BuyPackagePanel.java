@@ -39,7 +39,7 @@ public class BuyPackagePanel extends JPanel {
         content.setBackground(new Color(30, 30, 45));
         content.setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        JLabel title = new JLabel("🛒 MUA GÓI TẬP");
+        JLabel title = new JLabel(" MUA GÓI TẬP");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(new Color(46, 204, 113));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
